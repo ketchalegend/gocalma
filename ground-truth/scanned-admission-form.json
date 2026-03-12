@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0.0",
+  "docId": "scanned-admission-form",
+  "fileName": "sample_scanned_admission_form_synthetic.pdf",
+  "generatedAt": "2026-03-12T16:00:00.000Z",
+  "entities": [
+    { "id": "gt-0001", "docId": "scanned-admission-form", "page": 1, "type": "PERSON", "text": "Sophie Dubois", "source": "ocr", "notes": "Patient full name" },
+    { "id": "gt-0002", "docId": "scanned-admission-form", "page": 1, "type": "DATE_OF_BIRTH", "text": "1986-05-29", "source": "ocr", "notes": "Patient date of birth" },
+    { "id": "gt-0003", "docId": "scanned-admission-form", "page": 1, "type": "ADDRESS", "text": "Rue des Lilas 7, 1205 Geneve, CH", "source": "ocr", "notes": "Patient address" },
+    { "id": "gt-0004", "docId": "scanned-admission-form", "page": 1, "type": "PHONE", "text": "+41 78 444 33 22", "source": "ocr", "notes": "Patient phone" },
+    { "id": "gt-0005", "docId": "scanned-admission-form", "page": 1, "type": "INSURANCE_NUMBER", "text": "INS-CH-550-229-104", "source": "ocr", "notes": "Insurance number" },
+    { "id": "gt-0006", "docId": "scanned-admission-form", "page": 1, "type": "ID_NUMBER", "text": "XK0002147", "source": "ocr", "notes": "Passport number" },
+    { "id": "gt-0007", "docId": "scanned-admission-form", "page": 1, "type": "PERSON", "text": "Jean Dubois", "source": "ocr", "notes": "Emergency contact name" },
+    { "id": "gt-0008", "docId": "scanned-admission-form", "page": 1, "type": "PHONE", "text": "+41 79 111 22 33", "source": "ocr", "notes": "Emergency contact phone" },
+    { "id": "gt-0009", "docId": "scanned-admission-form", "page": 1, "type": "EMAIL", "text": "jean.dubois@syntheticmail.example", "source": "ocr", "notes": "Emergency contact email" },
+    { "id": "gt-0010", "docId": "scanned-admission-form", "page": 1, "type": "PERSON", "text": "Dr. A. Steiner", "source": "ocr", "notes": "Treating physician" },
+    { "id": "gt-0011", "docId": "scanned-admission-form", "page": 1, "type": "ID_NUMBER", "text": "SCAN-ADM-2026-02-18017", "source": "ocr", "notes": "Document ID" }
+  ]
+}

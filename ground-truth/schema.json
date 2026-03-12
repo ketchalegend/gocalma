@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GoCalma Ground Truth v1",
+  "type": "object",
+  "required": ["schemaVersion", "docId", "fileName", "generatedAt", "entities"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "docId": { "type": "string" },
+    "fileName": { "type": "string" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "docId", "page", "type", "text", "source"],
+        "properties": {
+          "id": { "type": "string" },
+          "docId": { "type": "string" },
+          "page": { "type": "integer", "minimum": 1 },
+          "type": {
+            "enum": [
+              "PERSON",
+              "ADDRESS",
+              "EMAIL",
+              "PHONE",
+              "IBAN",
+              "ID_NUMBER",
+              "DATE_OF_BIRTH",
+              "INSURANCE_NUMBER",
+              "PATIENT_ID",
+              "AVS_NUMBER"
+            ]
+          },
+          "text": { "type": "string" },
+          "source": { "enum": ["text", "ocr"] }
+        }
+      }
+    }
+  }
+}

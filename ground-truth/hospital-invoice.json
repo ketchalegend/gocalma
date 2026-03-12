@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0.0",
+  "docId": "hospital-invoice",
+  "fileName": "sample_hospital_invoice_synthetic.pdf",
+  "generatedAt": "2026-03-12T10:00:00.000Z",
+  "entities": [
+    { "id": "gt-0001", "docId": "hospital-invoice", "page": 1, "type": "PERSON", "text": "Lara Meier", "source": "text" },
+    { "id": "gt-0002", "docId": "hospital-invoice", "page": 1, "type": "DATE_OF_BIRTH", "text": "1991-07-14", "source": "text" },
+    { "id": "gt-0003", "docId": "hospital-invoice", "page": 1, "type": "ADDRESS", "text": "Seestrasse 88 8002 Zurich, CH", "source": "text" },
+    { "id": "gt-0004", "docId": "hospital-invoice", "page": 1, "type": "PHONE", "text": "+41 79 555 01 72", "source": "text" },
+    { "id": "gt-0005", "docId": "hospital-invoice", "page": 1, "type": "PATIENT_ID", "text": "PT-49302817", "source": "text" },
+    { "id": "gt-0006", "docId": "hospital-invoice", "page": 1, "type": "AVS_NUMBER", "text": "756.9217.4821.09", "source": "text" },
+    { "id": "gt-0007", "docId": "hospital-invoice", "page": 1, "type": "INSURANCE_NUMBER", "text": "HC-CH-992-118-440", "source": "text" },
+    { "id": "gt-0008", "docId": "hospital-invoice", "page": 1, "type": "ID_NUMBER", "text": "CLM-2026-02-771204", "source": "text" },
+    { "id": "gt-0009", "docId": "hospital-invoice", "page": 1, "type": "IBAN", "text": "CH44 3199 9123 0000 5512 8", "source": "text" },
+    { "id": "gt-0010", "docId": "hospital-invoice", "page": 1, "type": "EMAIL", "text": "billing@stcalma.example", "source": "text" },
+    { "id": "gt-0011", "docId": "hospital-invoice", "page": 2, "type": "PHONE", "text": "+41 44 555 90 10", "source": "text" }
+  ]
+}

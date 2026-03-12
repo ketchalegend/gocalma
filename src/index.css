@@ -1,0 +1,165 @@
+:root {
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color: #102027;
+  background: radial-gradient(circle at 20% 0%, #d8f3ff, #f4f9ff 50%, #ffffff);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.app-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+header h1 {
+  margin-bottom: 0.25rem;
+}
+
+.tab-nav {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0 1.5rem;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: 1px solid #0d5661;
+  background: #e7fbff;
+  color: #0d5661;
+  padding: 0.5rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button.active,
+button.tab-active {
+  background: #0d5661;
+  color: #fff;
+}
+
+button.secondary-btn {
+  background: transparent;
+  border-color: #8ca8af;
+  color: #5a7a82;
+}
+
+.file-input {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.75rem 0;
+}
+
+.detection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.detection-card {
+  border: 1px solid #bdd8de;
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+}
+
+.text-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+pre {
+  white-space: pre-wrap;
+  border: 1px solid #d7e3e7;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #fff;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.unredact-panel {
+  text-align: left;
+  margin-top: 0.5rem;
+}
+
+.unredact-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 1rem 0;
+}
+
+.file-badge {
+  color: #3a6d76;
+  font-size: 0.85rem;
+  margin-left: 0.25rem;
+}
+
+.success-msg {
+  color: #1a6b3e;
+  background: #e6f7ed;
+  border: 1px solid #b2dfbc;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+}
+
+.info-msg {
+  color: #3a6d76;
+  background: #e7fbff;
+  border: 1px solid #b0d9e3;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+}
+
+.error-msg {
+  color: #8b1a1a;
+  background: #fde8e8;
+  border: 1px solid #f0b0b0;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+}
+
+details {
+  margin-top: 1.5rem;
+  border: 1px solid #d7e3e7;
+  border-radius: 10px;
+  padding: 0.75rem;
+  background: #fafcfd;
+}
+
+details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #3a6d76;
+}
+
+@media (max-width: 900px) {
+  .text-panels {
+    grid-template-columns: 1fr;
+  }
+}

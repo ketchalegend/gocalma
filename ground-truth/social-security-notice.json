@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0.0",
+  "docId": "social-security-notice",
+  "fileName": "sample_social_security_notice_synthetic.pdf",
+  "generatedAt": "2026-03-12T10:00:00.000Z",
+  "entities": [
+    { "id": "gt-0001", "docId": "social-security-notice", "page": 1, "type": "PERSON", "text": "Marco Bianchi", "source": "text" },
+    { "id": "gt-0002", "docId": "social-security-notice", "page": 1, "type": "ADDRESS", "text": "Via del Lago 12 6900 Lugano, CH", "source": "text" },
+    { "id": "gt-0003", "docId": "social-security-notice", "page": 1, "type": "AVS_NUMBER", "text": "756.8356.9021.34", "source": "text" },
+    { "id": "gt-0004", "docId": "social-security-notice", "page": 1, "type": "DATE_OF_BIRTH", "text": "1958-11-02", "source": "text" },
+    { "id": "gt-0005", "docId": "social-security-notice", "page": 1, "type": "ID_NUMBER", "text": "CH-AVS-2026-000771-BA", "source": "text" },
+    { "id": "gt-0006", "docId": "social-security-notice", "page": 1, "type": "PHONE", "text": "+41 91 555 02 10", "source": "text" },
+    { "id": "gt-0007", "docId": "social-security-notice", "page": 1, "type": "EMAIL", "text": "avs.ti@social.example", "source": "text" },
+    { "id": "gt-0008", "docId": "social-security-notice", "page": 1, "type": "IBAN", "text": "CH93 0076 2011 6238 5295 7", "source": "text" },
+    { "id": "gt-0009", "docId": "social-security-notice", "page": 2, "type": "AVS_NUMBER", "text": "756 8356 9021 34", "source": "text" },
+    { "id": "gt-0010", "docId": "social-security-notice", "page": 2, "type": "ID_NUMBER", "text": "CH/AVS/2026/000771/BA", "source": "text" },
+    { "id": "gt-0011", "docId": "social-security-notice", "page": 2, "type": "ID_NUMBER", "text": "TCK-77-19023-SSO", "source": "text" },
+    { "id": "gt-0012", "docId": "social-security-notice", "page": 2, "type": "EMAIL", "text": "marco.bianchi+avs@syntheticmail.example", "source": "text" },
+    { "id": "gt-0013", "docId": "social-security-notice", "page": 2, "type": "PHONE", "text": "+41 (0)91 555 02 10", "source": "text" },
+    { "id": "gt-0014", "docId": "social-security-notice", "page": 2, "type": "PHONE", "text": "+41 91 555 02 11", "source": "text" }
+  ]
+}
