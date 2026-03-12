@@ -55,7 +55,7 @@ GoCalma implements a complete privacy-preserving workflow for PDF document sanit
 
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/ketchalegend/gocalma
 cd gocalma
 
 # Install dependencies

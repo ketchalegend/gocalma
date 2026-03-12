@@ -26,3 +26,14 @@ public/models/
 *.njsproj
 *.sln
 *.sw?
+
+# Local AI/agent skills and tooling (do not commit)
+.agent/
+.agents/
+.claude/
+.continue/
+.factory/
+.goose/
+.windsurf/
+skills/
+skills-lock.json
