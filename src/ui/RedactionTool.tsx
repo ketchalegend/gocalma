@@ -207,10 +207,11 @@ export function RedactionTool() {
   const [restoredText, setRestoredText] = useState<string[]>([]);
   const [error, setError] = useState<string>('');
   const [warning, setWarning] = useState<string>('');
-  const [enableNer, setEnableNer] = useState<boolean>(false);
+  const [processingStep, setProcessingStep] = useState<string>('Extracting text from PDF...');
+  const [searchFilter, setSearchFilter] = useState<string>('');
+  const [enableNer, setEnableNer] = useState<boolean>(true);
   const [aggressiveLineMode, setAggressiveLineMode] = useState<boolean>(false);
-  const [nerModel, setNerModel] = useState<'bert-base'>('bert-base');
-  const [useLocalNerService, setUseLocalNerService] = useState<boolean>(false);
+  const [nerModel, setNerModel] = useState<'multilingual-hrl'>('multilingual-hrl');
   const [restorePayload, setRestorePayload] = useState<KeyFilePayload | null>(null);
 
   const selectedDetections = useMemo(
@@ -218,6 +219,16 @@ export function RedactionTool() {
     [detections, selected],
   );
   const selectedCount = selected.size;
+  
+  const filteredDetections = useMemo(() => {
+    if (!searchFilter) return detections;
+    return detections.filter(detection => 
+      detection.text.toLowerCase().includes(searchFilter) ||
+      detection.type.toLowerCase().includes(searchFilter) ||
+      detection.source.toLowerCase().includes(searchFilter) ||
+      detection.page.toString().includes(searchFilter)
+    );
+  }, [detections, searchFilter]);
 
   function resetWorkflow() {
     setStage('upload');
@@ -233,76 +244,75 @@ export function RedactionTool() {
     setRestorePayload(null);
   }
 
-  async function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-    let timer: number | undefined;
-    const timeoutPromise = new Promise<T>((_, reject) => {
-      timer = window.setTimeout(() => reject(new Error(message)), ms);
-    });
-    try {
-      return await Promise.race([promise, timeoutPromise]);
-    } finally {
-      if (timer) window.clearTimeout(timer);
-    }
-  }
+   async function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+     let timer: number | undefined;
+     const timeoutPromise = new Promise<T>((_, reject) => {
+       timer = window.setTimeout(() => reject(new Error(message)), ms);
+     });
+     try {
+       return await Promise.race([promise, timeoutPromise]);
+     } finally {
+       if (timer) window.clearTimeout(timer);
+     }
+   }
 
-  async function handleUpload(file: File) {
-    setStage('processing');
-    setError('');
-    setWarning('');
-    setFileName(file.name);
+   async function handleUpload(file: File) {
+     setStage('processing');
+     setError('');
+     setWarning('');
+     setFileName(file.name);
+     setProcessingStep('Extracting text from PDF...');
 
-    try {
-      const extracted = await withTimeout(extractPdf(file), 25000, 'PDF extraction timed out.');
-      const detectionTimeout = enableNer ? 180000 : 25000;
-      const minConfidence = useLocalNerService ? 0.7 : 0.8;
-      const found = await withTimeout(
-        detector.detect(extracted, {
-          useRegex: true,
-          useNER: enableNer,
-          minConfidence,
-          aggressiveLineMode,
-          nerModel,
-          useLocalNerService,
-        }),
-        detectionTimeout,
-        'PII detection timed out.',
-      );
-      if (enableNer) {
-        const nerError = detector.getLastNerError();
-        if (nerError) {
-          throw new Error(`NER unavailable: ${nerError}`);
-        } else {
-          if (useLocalNerService) setWarning('Local NER service active: http://127.0.0.1:8787');
-          else {
-            const modelId = detector.getActiveNerModelId();
-            if (modelId) setWarning(`NER loaded locally: ${modelId}`);
-          }
-        }
-      }
-      let ocrFound: typeof found = [];
-      if (OCR_ENABLED) {
-        try {
-          ocrFound = await withTimeout(detectOcrDetections(extracted), 120000, 'OCR detection timed out (Tesseract may still be downloading language data — try again).');
-          console.log(`[OCR] Detected ${ocrFound.length} OCR-based PII items`);
-        } catch (ocrErr) {
-          const msg = ocrErr instanceof Error ? ocrErr.message : String(ocrErr);
-          console.error('[OCR] Detection failed:', msg);
-          setWarning(`OCR detection failed: ${msg}. Text-based detections still applied.`);
-        }
-      }
-      const merged = [...found, ...ocrFound];
+     try {
+       const extracted = await withTimeout(extractPdf(file), 25000, 'PDF extraction timed out.');
+       setProcessingStep('Detecting PII entities...');
+       const detectionTimeout = enableNer ? 180000 : 25000;
+       const minConfidence = 0.8;
+         const found = await withTimeout(
+           detector.detect(extracted, {
+             useRegex: true,
+             useNER: enableNer,
+             requireNER: false,
+             minConfidence,
+             aggressiveLineMode,
+             nerModel,
+             useLocalNerService: false,
+           }),
+           detectionTimeout,
+           'PII detection timed out.',
+         );
+       if (enableNer) {
+         const nerError = detector.getLastNerError();
+         if (nerError) {
+           setWarning(`NER enrichment unavailable, continuing with regex/context detection only: ${nerError}`);
+         } else {
+           const modelId = detector.getActiveNerModelId();
+           if (modelId) setWarning(`NER loaded locally: ${modelId}`);
+         }
+       }
+       let ocrFound: typeof found = [];
+       if (OCR_ENABLED) {
+         try {
+           ocrFound = await withTimeout(detectOcrDetections(extracted), 120000, 'OCR detection timed out (Tesseract may still be downloading language data — try again).');
+           console.log(`[OCR] Detected ${ocrFound.length} OCR-based PII items`);
+         } catch (ocrErr) {
+           const msg = ocrErr instanceof Error ? ocrErr.message : String(ocrErr);
+           console.error('[OCR] Detection failed:', msg);
+           setWarning(`OCR detection failed: ${msg}. Text-based detections still applied.`);
+         }
+       }
+       const merged = [...found, ...ocrFound];
 
-      setPdf(extracted);
-      setDetections(merged);
-      setSelected(new Set(merged.map((entry) => entry.id)));
-      setStage('review');
-    } catch (uploadError) {
-      const message = uploadError instanceof Error ? uploadError.message : 'Unknown processing error';
-      setError(`Processing failed: ${message}`);
-      setStage('upload');
-    }
-  }
-
+       setPdf(extracted);
+       setDetections(merged);
+       setSelected(new Set(merged.map((entry) => entry.id)));
+       setStage('review');
+     } catch (uploadError) {
+       const message = uploadError instanceof Error ? uploadError.message : 'Unknown processing error';
+       setError(`Processing failed: ${message}`);
+       setStage('upload');
+     }
+   }
   async function handleGenerate() {
     if (!pdf) return;
     setStage('processing');
@@ -341,22 +351,22 @@ export function RedactionTool() {
 
   return (
     <section className="workflow-shell">
-      <nav className="tab-nav">
-        <button
-          type="button"
-          className={activeTab === 'redact' ? 'tab-active' : ''}
-          onClick={() => setActiveTab('redact')}
-        >
-          Redact PII
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'unredact' ? 'tab-active' : ''}
-          onClick={() => setActiveTab('unredact')}
-        >
-          Restore Original
-        </button>
-      </nav>
+       <nav className="tab-nav">
+         <button
+           type="button"
+           className={activeTab === 'redact' ? 'tab-active' : ''}
+           onClick={() => setActiveTab('redact')}
+         >
+           Redact Document
+         </button>
+         <button
+           type="button"
+           className={activeTab === 'unredact' ? 'tab-active' : ''}
+           onClick={() => setActiveTab('unredact')}
+         >
+           Restore Document
+         </button>
+       </nav>
 
       {activeTab === 'unredact' && <UnredactPanel />}
 
@@ -441,67 +451,53 @@ export function RedactionTool() {
                     />
                   </label>
 
-                  <div className="option-grid">
-                    <label className="toggle-card">
-                      <input
-                        type="checkbox"
-                        checked={enableNer}
-                        onChange={(event) => setEnableNer(event.currentTarget.checked)}
-                      />
-                      <div>
-                        <strong>NER enrichment</strong>
-                        <p>Slower, higher-context detection. First local run may download a model.</p>
-                      </div>
-                    </label>
-                    {enableNer && (
-                      <label className="toggle-card">
-                        <input
-                          type="checkbox"
-                          checked={useLocalNerService}
-                          onChange={(event) => setUseLocalNerService(event.currentTarget.checked)}
-                        />
-                        <div>
-                          <strong>Use local GLiNER service</strong>
-                          <p>Route NER through `http://127.0.0.1:8787` instead of the in-browser model.</p>
-                        </div>
-                      </label>
-                    )}
-                    {enableNer && (
-                      <label className="file-input control-stack">
-                        <span className="control-label">NER model</span>
-                        <select
-                          value={nerModel}
-                          disabled={useLocalNerService}
-                          onChange={(event) => setNerModel(event.currentTarget.value as 'bert-base')}
-                        >
-                          <option value="bert-base">Xenova/bert-base-NER (local /models)</option>
-                        </select>
-                      </label>
-                    )}
-                    <label className="toggle-card">
-                      <input
-                        type="checkbox"
-                        checked={aggressiveLineMode}
-                        onChange={(event) => setAggressiveLineMode(event.currentTarget.checked)}
-                      />
-                      <div>
-                        <strong>Aggressive privacy mode</strong>
-                        <p>Expand redaction to full lines containing any detected PII.</p>
-                      </div>
-                    </label>
-                  </div>
+                   <div className="option-grid">
+                     <label className="toggle-card">
+                       <input
+                         type="checkbox"
+                         checked={enableNer}
+                         onChange={(event) => setEnableNer(event.currentTarget.checked)}
+                       />
+                       <div>
+                         <strong>NER enrichment</strong>
+                         <p>Runs after regex/context detection for a second pass. First local run may download a model.</p>
+                       </div>
+                     </label>
+                      {enableNer && (
+                        <label className="file-input control-stack">
+                          <span className="control-label">NER model</span>
+                          <select
+                            value={nerModel}
+                            onChange={(event) => setNerModel(event.currentTarget.value as 'multilingual-hrl')}
+                          >
+                            <option value="multilingual-hrl">Xenova/bert-base-multilingual-cased-ner-hrl (local /models)</option>
+                          </select>
+                        </label>
+                      )}
+                     <label className="toggle-card">
+                       <input
+                         type="checkbox"
+                         checked={aggressiveLineMode}
+                         onChange={(event) => setAggressiveLineMode(event.currentTarget.checked)}
+                       />
+                       <div>
+                         <strong>Aggressive privacy mode</strong>
+                         <p>Expand redaction to full lines containing any detected PII.</p>
+                       </div>
+                     </label>
+                   </div>
                 </div>
               )}
 
-              {stage === 'processing' && (
-                <div className="processing-state">
-                  <div className="pulse-dot" aria-hidden="true" />
-                  <div>
-                    <strong>Processing document locally</strong>
-                    <p>Text extraction, PII detection, and optional OCR are running in this browser session.</p>
-                  </div>
-                </div>
-              )}
+               {stage === 'processing' && (
+                 <div className="processing-state">
+                   <div className="pulse-dot" aria-hidden="true" />
+                   <div>
+                     <strong>Processing document locally</strong>
+                     <p>{processingStep}</p>
+                   </div>
+                 </div>
+               )}
               {error && (
                 <p role="alert" className="error-msg">
                   {error}
@@ -513,63 +509,72 @@ export function RedactionTool() {
                 </p>
               )}
 
-              {stage === 'review' && (
-                <>
-                  <div className="review-header">
-                    <div>
-                      <h3>Review detections</h3>
-                      <p>{detections.length} candidates found. {selectedCount} currently selected for redaction.</p>
-                    </div>
-                    <div className="actions">
-                      <button
-                        type="button"
-                        onClick={() => setSelected(new Set(detections.map((entry) => entry.id)))}
-                      >
-                        Select all
-                      </button>
-                      <button type="button" className="secondary-btn" onClick={() => setSelected(new Set())}>
-                        Select none
-                      </button>
-                    </div>
-                  </div>
-                  <div className="detection-grid">
-                    {detections.map((detection) => (
-                      <label key={detection.id} className="detection-card">
-                        <input
-                          id={`detection-${detection.id}`}
-                          type="checkbox"
-                          checked={selected.has(detection.id)}
-                          onChange={(event) => {
-                            setSelected((current) => {
-                              const next = new Set(current);
-                              if (event.currentTarget.checked) next.add(detection.id);
-                              else next.delete(detection.id);
-                              return next;
-                            });
-                          }}
-                        />
-                        <div className="detection-card-body">
-                          <div className="detection-topline">
-                            <strong>{detection.type}</strong>
-                            <span className={`confidence-pill confidence-${detection.confidence >= 0.9 ? 'high' : detection.confidence >= 0.75 ? 'mid' : 'low'}`}>
-                              conf {detection.confidence.toFixed(2)}
-                            </span>
-                          </div>
-                          <span className="detection-text">{detection.text}</span>
-                          <small>
-                            page {detection.page} · {detection.source}
-                          </small>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                  <div className="actions">
-                    <button type="button" onClick={() => void handleGenerate()}>
-                      Generate redacted outputs
-                    </button>
-                  </div>
-                </>
-              )}
+               {stage === 'review' && (
+                 <>
+                   <div className="review-header">
+                     <div>
+                       <h3>Review detections</h3>
+                       <p>{detections.length} candidates found. {selectedCount} currently selected for redaction.</p>
+                     </div>
+                     <div className="actions">
+                       <button
+                         type="button"
+                         onClick={() => setSelected(new Set(detections.map((entry) => entry.id)))}
+                       >
+                         Select all
+                       </button>
+                       <button type="button" className="secondary-btn" onClick={() => setSelected(new Set())}>
+                         Select none
+                       </button>
+                     </div>
+                   </div>
+                   <div className="file-input control-stack" style={{ margin: '1rem 0' }}>
+                     <span className="control-label">Filter detections</span>
+                     <input
+                       type="text"
+                       placeholder="Search by text, type, or source..."
+                       className="search-input"
+                       onChange={(e) => setSearchFilter(e.target.value.toLowerCase())}
+                     />
+                   </div>
+                   <div className="detection-grid">
+                     {filteredDetections.map((detection) => (
+                       <label key={detection.id} className="detection-card">
+                         <input
+                           id={`detection-${detection.id}`}
+                           type="checkbox"
+                           checked={selected.has(detection.id)}
+                           onChange={(event) => {
+                             setSelected((current) => {
+                               const next = new Set(current);
+                               if (event.currentTarget.checked) next.add(detection.id);
+                               else next.delete(detection.id);
+                               return next;
+                             });
+                           }}
+                         />
+                         <div className="detection-card-body">
+                           <div className="detection-topline">
+                             <strong>{detection.type}</strong>
+                             <span className={`confidence-pill confidence-${detection.confidence >= 0.9 ? 'high' : detection.confidence >= 0.75 ? 'mid' : 'low'}`}>
+                               conf {detection.confidence.toFixed(2)}
+                             </span>
+                           </div>
+                           <span className="detection-text">{detection.text}</span>
+                           <small>
+                             page {detection.page} · {detection.source}
+                           </small>
+                         </div>
+                       </label>
+                     ))}
+                   </div>
+                   <div className="actions">
+                     <button type="button" onClick={() => void handleGenerate()}>
+                       Generate redacted outputs
+                     </button>
+                   </div>
+                 </>
+               )}
 
               {stage === 'download' && result && (
                 <>
@@ -636,10 +641,10 @@ export function RedactionTool() {
                   </details>
                 </>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  );
+             </div>
+           </div>
+         </div>
+       )}
+     </section>
+   );
 }

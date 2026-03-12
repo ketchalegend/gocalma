@@ -221,6 +221,118 @@ describe('context-aware local detection', () => {
     ).toBe(true);
   });
 
+  it('detects declaration-style address and ID fields from civic forms', async () => {
+    const detector = new PIIDetector();
+
+    const text = [
+      'I, the undersigned KETCHA BEPA EMMANUEL',
+      'resident in VOGHERA(PV) VIA ASPROMONTE No. 14',
+      'tax code KTCMNL94S28Z306S',
+      'Unique National Identifier (ANPR ID) OO62211HM',
+      'Identity card no. CA17550VQ',
+    ].join('\n');
+
+    const fakePdf: ExtractedPdf = {
+      fileName: 'italian-declaration.pdf',
+      bytes: new Uint8Array([1, 2, 3]),
+      pages: [
+        {
+          page: 1,
+          width: 600,
+          height: 800,
+          text,
+          items: [
+            { text: 'I, the undersigned KETCHA BEPA EMMANUEL', x: 40, y: 720, width: 320, height: 12 },
+            { text: 'resident in VOGHERA(PV) VIA ASPROMONTE No. 14', x: 40, y: 700, width: 360, height: 12 },
+            { text: 'tax code KTCMNL94S28Z306S', x: 40, y: 680, width: 220, height: 12 },
+            { text: 'Unique National Identifier (ANPR ID) OO62211HM', x: 40, y: 660, width: 360, height: 12 },
+            { text: 'Identity card no. CA17550VQ', x: 40, y: 640, width: 220, height: 12 },
+          ],
+          spans: [],
+        },
+      ],
+    };
+
+    const detections = await detector.detect(fakePdf, { useRegex: true, useNER: false });
+
+    expect(detections.some((detection) => detection.type === 'ADDRESS' && detection.text.includes('VOGHERA(PV) VIA ASPROMONTE No. 14'))).toBe(true);
+    expect(detections.some((detection) => detection.type === 'ID_NUMBER' && detection.text === 'KTCMNL94S28Z306S')).toBe(true);
+    expect(detections.some((detection) => detection.type === 'ID_NUMBER' && detection.text === 'OO62211HM')).toBe(true);
+    expect(detections.some((detection) => detection.type === 'ID_NUMBER' && detection.text === 'CA17550VQ')).toBe(true);
+  });
+
+  it('detects declaration-style DOB narrative and family table entries', async () => {
+    const detector = new PIIDetector();
+
+    const text = [
+      'I, the undersigned KETCHA BEPA EMMANUEL',
+      'born in CAMERUN - BAMENDA NDOP on 28/11/1994',
+      'that the family consists of the following persons:',
+      'surname and first name place of birth date of birth relationship',
+      'KETCHA BEPA EMMANUEL CAMERUN - 28/11/1994 Card holder',
+      'BAMENDA',
+      'NDOP',
+    ].join('\n');
+
+    const fakePdf: ExtractedPdf = {
+      fileName: 'italian-declaration-dob.pdf',
+      bytes: new Uint8Array([1, 2, 3]),
+      pages: [
+        {
+          page: 1,
+          width: 700,
+          height: 900,
+          text,
+          items: [
+            { text: 'I, the undersigned KETCHA BEPA EMMANUEL', x: 40, y: 760, width: 320, height: 12 },
+            { text: 'born in CAMERUN - BAMENDA NDOP on 28/11/1994', x: 40, y: 740, width: 360, height: 12 },
+            { text: 'surname and first name place of birth date of birth relationship', x: 40, y: 620, width: 500, height: 12 },
+            { text: 'KETCHA BEPA EMMANUEL CAMERUN - 28/11/1994 Card holder', x: 40, y: 600, width: 420, height: 12 },
+            { text: 'BAMENDA', x: 260, y: 580, width: 90, height: 12 },
+            { text: 'NDOP', x: 260, y: 560, width: 60, height: 12 },
+          ],
+          spans: [],
+        },
+      ],
+    };
+
+    const detections = await detector.detect(fakePdf, { useRegex: true, useNER: false });
+
+    expect(detections.some((detection) => detection.type === 'DATE_OF_BIRTH' && detection.text === '28/11/1994')).toBe(true);
+    expect(
+      detections.some(
+        (detection) => detection.type === 'PERSON' && detection.text.includes('KETCHA BEPA EMMANUEL'),
+      ),
+    ).toBe(true);
+  });
+
+  it('falls back to regex/context detections when optional NER enrichment is unavailable', async () => {
+    const detector = new PIIDetector();
+    detector.initializeNER = async () => {
+      throw new Error('missing local model');
+    };
+
+    const fakePdf: ExtractedPdf = {
+      fileName: 'ner-fallback.pdf',
+      bytes: new Uint8Array([1, 2, 3]),
+      pages: [
+        {
+          page: 1,
+          width: 500,
+          height: 700,
+          text: 'Email: carla@example.es',
+          items: [{ text: 'Email: carla@example.es', x: 20, y: 640, width: 180, height: 12 }],
+          spans: [],
+        },
+      ],
+    };
+
+    const detections = await detector.detect(fakePdf, { useRegex: true, useNER: true, requireNER: false });
+
+    expect(detections.some((detection) => detection.type === 'EMAIL' && detection.text === 'carla@example.es')).toBe(true);
+    expect(detector.getLastNerError()).toContain('missing local model');
+  });
+
   it('detects account holder names and titled comma-separated recipient names', async () => {
     const detector = new PIIDetector();
 

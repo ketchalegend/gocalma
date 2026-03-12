@@ -545,12 +545,13 @@ details > summary {
 input[type="file"],
 input[type="text"],
 input[type="number"],
-select {
-  border-radius: 14px;
-  border: 1px solid var(--line-strong);
-  background: rgba(16, 14, 13, 0.8);
-  color: var(--text);
-  padding: 0.8rem 0.9rem;
+select,
+.input-search {
+   border-radius: 14px;
+   border: 1px solid var(--line-strong);
+   background: rgba(16, 14, 13, 0.8);
+   color: var(--text);
+   padding: 0.8rem 0.9rem;
 }
 
 input[type="checkbox"] {

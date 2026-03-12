@@ -47,6 +47,11 @@ interface LineRange {
   end: number;
 }
 
+interface DeclarationTableResult {
+  detections: Detection[];
+  consumedLineStarts: Set<number>;
+}
+
 const REQUIRED_LOCAL_NER_ASSETS = ['config.json', 'tokenizer.json', 'tokenizer_config.json'] as const;
 const ADDRESS_SECTION_LABELS: AddressSectionLabel[] = [
   { kind: 'recipient', labels: ['rechnungsadresse', 'lieferadresse', 'billingaddress', 'shippingaddress', 'deliveryaddress'] },
@@ -210,8 +215,9 @@ export interface DetectionOptions {
   minConfidence?: number;
   useRegex?: boolean;
   useNER?: boolean;
+  requireNER?: boolean;
   aggressiveLineMode?: boolean;
-  nerModel?: 'bert-base' | 'distilbert';
+  nerModel?: 'multilingual-hrl';
   useLocalNerService?: boolean;
 }
 
@@ -273,10 +279,22 @@ function normalizeLocalLabel(rawLabel: string): PiiType | null {
 
 const CONTEXT_RULES: ContextRule[] = [
   {
+    type: 'PERSON',
+    pattern:
+      /\b(?:i,\s*the undersigned|the undersigned|io,\s*il sottoscritto|ich,\s+der(?:\/die)?\s+unterzeichnete(?:r)?|je,\s*soussign[ée])\b\s*[:,-]?\s*([A-ZÀ-ÖØ-Ý][\p{L}'’-]{1,30}(?:\s+[A-ZÀ-ÖØ-Ý][\p{L}'’-]{1,30}){1,4})/giu,
+    valueGroup: 1,
+  },
+  {
     type: 'DATE_OF_BIRTH',
     pattern:
       /\b(geburtsdatum|date of birth|dob|fecha de nacimiento|date de naissance|data di nascita)\b\s*[:-]?\s*((?:[0-3]?\d[./-][01]?\d[./-](?:19|20)?\d{2})|(?:(?:19|20)\d{2}-\d{2}-\d{2}))/giu,
     valueGroup: 2,
+  },
+  {
+    type: 'DATE_OF_BIRTH',
+    pattern:
+      /\b(?:born in|born at|nato a|nata a|né(?:e)? à|nacido en|nata en)\b[^\n]{0,120}?\bon\b\s*((?:[0-3]?\d[./-][01]?\d[./-](?:19|20)?\d{2})|(?:(?:19|20)\d{2}-\d{2}-\d{2}))/giu,
+    valueGroup: 1,
   },
   {
     type: 'PERSON',
@@ -318,6 +336,24 @@ const CONTEXT_RULES: ContextRule[] = [
     pattern:
       /\b(address|adresse|direcci[oó]n|indirizzo)\b\s*[:-]?\s*([^\n]{6,120})/giu,
     valueGroup: 2,
+  },
+  {
+    type: 'ADDRESS',
+    pattern:
+      /\b(?:resident in|residing at|residente in|residente en|wohnhaft in|domiciled at)\b\s*[:-]?\s*([^\n]{6,120})/giu,
+    valueGroup: 1,
+  },
+  {
+    type: 'ID_NUMBER',
+    pattern:
+      /\b(?:tax code|fiscal code|codice fiscale|tax id|tax identification number)\b\s*[:#-]?\s*([A-Z0-9]{8,20})/giu,
+    valueGroup: 1,
+  },
+  {
+    type: 'ID_NUMBER',
+    pattern:
+      /\b(?:unique national identifier|national identifier|anpr id|national id|id card no\.?|identity card no\.?|identity card number|identity no\.?)(?:\s*\([^)]*\))?\s*[:#-]?\s*([A-Z0-9]{6,20})/giu,
+    valueGroup: 1,
   },
   {
     type: 'EMAIL',
@@ -910,6 +946,40 @@ function detectStandaloneBlocks(page: ExtractedPage): Detection[] {
   return detections;
 }
 
+function detectDeclarationTableRows(page: ExtractedPage): DeclarationTableResult {
+  const detections: Detection[] = [];
+  const consumedLineStarts = new Set<number>();
+  const lines = splitLinesWithRanges(page.text);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const header = lines[index];
+    if (!/\bsurname and first name\b/i.test(header.text) || !/\bdate of birth\b/i.test(header.text)) {
+      continue;
+    }
+
+    const row = lines[index + 1];
+    if (!row) continue;
+
+    const rowText = row.text.replace(/\s+/g, ' ').trim();
+    const dateMatch = /([0-3]?\d[./-][01]?\d[./-](?:19|20)?\d{2})/.exec(rowText);
+    if (!dateMatch) continue;
+
+    const personMatch = /^\s*(\[[A-Z_0-9]+\]|[A-ZÀ-ÖØ-Ý][\p{L}'’.-]{1,30}(?:\s+[A-ZÀ-ÖØ-Ý][\p{L}'’.-]{1,30}){1,4})/u.exec(rowText);
+    if (personMatch) {
+      const personStart = row.start + rowText.indexOf(personMatch[1]);
+      const personEnd = personStart + personMatch[1].length;
+      detections.push(mapMatchToDetection(page, 'PERSON', personMatch[1], personStart, personEnd, 'context', 0.97));
+    }
+
+    const dobStart = row.start + dateMatch.index;
+    const dobEnd = dobStart + dateMatch[1].length;
+    detections.push(mapMatchToDetection(page, 'DATE_OF_BIRTH', dateMatch[1], dobStart, dobEnd, 'context', 0.99));
+    consumedLineStarts.add(row.start);
+  }
+
+  return { detections, consumedLineStarts };
+}
+
 function detectHeaderRecipientBlocks(page: ExtractedPage): Detection[] {
   const detections: Detection[] = [];
   const textItems = page.items.filter((item) => item.text.trim().length > 0);
@@ -1133,16 +1203,14 @@ export class PIIDetector {
     return this.activeNerModelId;
   }
 
-  private getNerCandidates(preferred: 'bert-base' | 'distilbert' = 'bert-base'): string[] {
-    // Keep one known-good public Xenova model to avoid invalid repo fallbacks.
-    // 'Xenova/distilbert-NER' is not consistently available.
-    if (preferred === 'distilbert') {
-      return ['Xenova/bert-base-NER'];
+  private getNerCandidates(preferred: 'multilingual-hrl' = 'multilingual-hrl'): string[] {
+    if (preferred === 'multilingual-hrl') {
+      return ['Xenova/bert-base-multilingual-cased-ner-hrl'];
     }
-    return ['Xenova/bert-base-NER'];
+    return ['Xenova/bert-base-multilingual-cased-ner-hrl'];
   }
 
-  async initializeNER(preferred: 'bert-base' | 'distilbert' = 'bert-base') {
+  async initializeNER(preferred: 'multilingual-hrl' = 'multilingual-hrl') {
     if (this.model) return;
 
     // Enforce locally hosted Xenova model files under public/models.
@@ -1229,13 +1297,14 @@ export class PIIDetector {
   }
 
   async detect(pdf: ExtractedPdf, options: DetectionOptions = {}): Promise<Detection[]> {
-    const minConfidence = options.minConfidence ?? 0.75;
-    const useRegex = options.useRegex ?? true;
-    const useNER = options.useNER ?? false;
-    const aggressiveLineMode = options.aggressiveLineMode ?? false;
-    const nerModel = options.nerModel ?? 'bert-base';
-    const useLocalNerService = options.useLocalNerService ?? false;
-    this.lastNerError = null;
+  const minConfidence = options.minConfidence ?? 0.75;
+  const useRegex = options.useRegex ?? true;
+  const useNER = options.useNER ?? false;
+  const requireNER = options.requireNER ?? false;
+  const aggressiveLineMode = options.aggressiveLineMode ?? false;
+    const nerModel = options.nerModel ?? 'multilingual-hrl';
+  const useLocalNerService = options.useLocalNerService ?? false;
+  this.lastNerError = null;
 
     const allDetections: Detection[] = [];
 
@@ -1247,6 +1316,8 @@ export class PIIDetector {
         pageDetections.push(...detectLabeledAddressSections(page));
         pageDetections.push(...detectHeaderRecipientBlocks(page));
         pageDetections.push(...detectStandaloneBlocks(page));
+        const declarationTable = detectDeclarationTableRows(page);
+        pageDetections.push(...declarationTable.detections);
 
         for (const regexRule of REGEX_PATTERNS) {
           const regex = new RegExp(regexRule.pattern.source, regexRule.pattern.flags);
@@ -1313,8 +1384,9 @@ export class PIIDetector {
           }
         } catch (error) {
           this.lastNerError = error instanceof Error ? error.message : 'Unknown NER loading/inference error';
-          // In strict NER mode, fail fast instead of silently falling back to regex-only.
-          throw error;
+          if (requireNER) {
+            throw error;
+          }
         }
       }
 

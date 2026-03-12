@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const MODEL_ID = 'Xenova/bert-base-NER';
+const MODEL_ID = 'Xenova/bert-base-multilingual-cased-ner-hrl';
 const TARGET_ROOT = path.resolve(process.cwd(), 'public', 'models', MODEL_ID);
 const TARGET_RESOLVE_MAIN = path.resolve(TARGET_ROOT, 'resolve', 'main');
 const API_URL = `https://huggingface.co/api/models/${MODEL_ID}`;

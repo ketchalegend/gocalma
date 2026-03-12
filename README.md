@@ -8,7 +8,7 @@ Challenge reference: `docs/CHALLENGE_SPEC.md`
 
 GoCalma implements a complete privacy-preserving workflow for PDF document sanitization:
 1. **Local Processing**: All operations occur in-browser - no data transmission to external servers
-2. **Hybrid Detection**: Combines regex pattern matching, layout analysis, and optional NER for high-recall PII identification
+2. **Hybrid Detection**: Combines regex/context rules, layout analysis, and NER enrichment for high-recall PII identification
 3. **User Review**: Interactive review step allows users to approve/dismiss detections before redaction
 4. **Reversible Redaction**: Generates encrypted key files enabling perfect restoration of redacted content
 5. **Ground Truth Tools**: Includes annotation and evaluation utilities for measuring detection performance
@@ -19,7 +19,7 @@ GoCalma implements a complete privacy-preserving workflow for PDF document sanit
 - **Multi-Strategy Detection**: 
   - Regex-based contextual pattern matching (names, addresses, emails, phones, IDs, etc.)
   - Layout-aware detection (finding values near labels)
-  - Optional NER enrichment via `@xenova/transformers` (Xenova/bert-base-NER)
+  - NER enrichment via `@xenova/transformers` using `Xenova/bert-base-multilingual-cased-ner-hrl`
   - Feature-flagged OCR support via `tesseract.js` for scanned documents
 - **Reversible Workflow**: 
   - Produces redacted PDF (`*_redacted.pdf`) and encrypted key file (`*.gocalma`)
@@ -27,7 +27,7 @@ GoCalma implements a complete privacy-preserving workflow for PDF document sanit
   - Perfect restoration fidelity - no information loss during redaction/restoration cycle
 - **User-Controlled Process**: 
   - Upload → Detect → Review (approve/dismiss detections) → Download
-  - Adjustable confidence thresholds and detection strategies
+  - Regex/context detection runs first; NER is applied as a second-pass enrichment layer
   - Aggressive privacy mode for full-line redaction
 - **Development & Validation Tooling**:
   - Ground truth builder for creating evaluation datasets
@@ -62,7 +62,7 @@ cd gocalma
 npm install
 
 # Download local NER model assets (required for NER enrichment)
-# This script downloads the Xenova/bert-base-NER model files to public/models/
+# This script downloads the Xenova/bert-base-multilingual-cased-ner-hrl model files to public/models/
 npm run setup
 ```
 
@@ -92,8 +92,7 @@ The page will automatically reload when you make changes to the source code.
    - Click "Download restored original PDF" to recover the document
 
 3. **Optional Features**:
-   - Enable NER: Check "Enable NER model enrichment" (first run may take time to load model)
-   - Use local NER service: Check "Use local GLiNER service" (requires separate service)
+   - NER enrichment is enabled by default; first run may take time to load the local model
    - Enable OCR: Start with `VITE_ENABLE_OCR=true npm run dev`
    - Aggressive mode: Check "Aggressive privacy mode" to redact full lines containing PII
 
@@ -146,7 +145,7 @@ Use `npm run evaluate` to score detections against these benchmarks.
 ### Data Flow
 1. User selects PDF file → File read into browser memory (Uint8Array)
 2. PDF text extracted using pdf.js (local processing)
-3. PII detection runs on extracted text using local strategies (regex/layout/NER/OCR)
+3. PII detection runs on extracted text using local strategies in sequence: regex/context rules, layout heuristics, NER enrichment, then optional OCR
 4. User reviews and approves detections in UI
 5. Approved detections are redacted using pdf-lib (local processing)
 6. Encryption key generated and stored in browser memory (never exported plaintext)
@@ -196,9 +195,10 @@ GoCalma implements a fully reversible redaction process that preserves exact tok
 - **PDF Extraction** (`src/core/pdf/extractor.ts`): Uses pdf.js to extract text with positional metadata
 - **PII Detection** (`src/core/pii/detector.ts`): Multi-strategy detection pipeline with:
   - Contextual regex rules (label:value patterns)
+  - Narrative and declaration-style rules (for example `born in ... on DD/MM/YYYY`, civic-form IDs, and table-like family rows)
   - Layout-based detection (spatial proximity heuristics)
   - Direct pattern matching (SSN, IBAN, phone formats)
-  - Optional NER via `@xenova/transformers`
+  - NER enrichment via `@xenova/transformers` using `Xenova/bert-base-multilingual-cased-ner-hrl`
   - Optional OCR via `tesseract.js`
 - **Redaction Service** (`src/core/redaction/service.ts`): Handles encrypted redaction package creation
 - **Security Manager** (`src/core/security/key-manager.ts`): AES-GCM encryption/decryption for key files
@@ -206,16 +206,16 @@ GoCalma implements a fully reversible redaction process that preserves exact tok
 - **Ground Truth Tools** (`src/ui/GroundTruthTool.tsx`): Annotation and evaluation utilities
 
 ### Detection Strategies
-1. **Context Rules**: Regex patterns looking for label:value pairs (e.g., "Name: John Doe")
+1. **Context Rules**: Regex and narrative patterns looking for label:value and sentence-level cues (e.g. `Name: John Doe`, `born in ... on 28/11/1994`)
 2. **Layout Analysis**: Finding values spatially near known labels in PDF coordinate space
-3. **Direct Patterns**: Format-based detection (email regex, phone patterns, IBAN validation)
-4. **Named Entity Recognition**: Statistical model detecting PERSON, ORG, LOC entities
+3. **Direct Patterns**: Format-based detection (email regex, phone patterns, IBAN validation, civic-form IDs)
+4. **Named Entity Recognition**: `Xenova/bert-base-multilingual-cased-ner-hrl` runs after regex/layout as an enrichment pass for PERSON/LOCATION-style entities
 5. **OCR Detection** (optional): Tesseract.js for text extraction from scanned/image PDFs
 6. **Post-processing Filters**: 
-   - Business context exclusion (avoid redacting corporate header/footer info)
-   - Recipient block geometry validation (ensure person/address blocks make sense)
-   - Financial line exclusion (avoid redacting invoice amounts, dates, etc.)
-   - Confidence scoring and deduplication
+  - Business context exclusion (avoid redacting corporate header/footer info)
+  - Recipient block geometry validation (ensure person/address blocks make sense)
+  - Financial line exclusion (avoid redacting invoice amounts, dates, etc.)
+  - Confidence scoring and deduplication
 
 ## Performance Benchmarks
 
@@ -255,7 +255,7 @@ Based on evaluation against the synthetic ground truth dataset:
 
 **NER Model Not Loading**
 - Ensure `npm run setup` has been run successfully
-- Check that `public/models/Xenova/bert-base-NER/` contains the required files
+- Check that `public/models/Xenova/bert-base-multilingual-cased-ner-hrl/` contains the required files
 - Verify network connectivity if using remote fallback (disabled by default in production)
 
 **OCR Not Working**
@@ -264,10 +264,10 @@ Based on evaluation against the synthetic ground truth dataset:
 - Check browser console for Tesseract loading/status messages
 
 **No Detections Found**
-- Try enabling NER enrichment for better recall on complex layouts
+- NER enrichment is already enabled by default; confirm the local model finished downloading via `npm run setup`
 - Check if document is scanned/image-based (may require OCR mode)
 - Verify text selection works in PDF viewer (indicates extractable text layer)
-- Adjust confidence threshold in detector (advanced)
+- If structured dates or IDs are missed, add or tune context rules in `src/core/pii/detector.ts`
 
 **Restoration Fails**
 - Ensure using the exact `.gocalma` file generated with the redacted PDF
@@ -337,7 +337,6 @@ To validate challenge readiness and ensure all acceptance gates are met:
 
 7. **Validate Stretch Features (Optional)**
    - OCR: `VITE_ENABLE_OCR=true npm run dev` then test with scanned PDFs
-   - Local NER Service: Run `npm run ner:server` then enable corresponding checkbox
 
 ## License
 
