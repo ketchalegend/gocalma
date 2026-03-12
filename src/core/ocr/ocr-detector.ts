@@ -1,4 +1,4 @@
-import { getDocument, type DocumentInitParameters } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { createWorker } from 'tesseract.js';
 import type { Detection, ExtractedPdf, PiiType } from '../../types/domain';
 import { REGEX_PATTERNS } from '../pii/patterns';
@@ -61,7 +61,6 @@ function classifyWord(word: string): PiiType | null {
   return null;
 }
 
-/* eslint-disable no-useless-escape */
 const PERSON_LABEL =
   'full name|name|recipient|empf[a\u00e4]nger|kontoinhaber|account holder' +
   '|patient(?: name)?|emergency contact|treating physician|arzt' +
@@ -305,101 +304,13 @@ async function pageNeedsOcr(
   return textArea / pageArea < TEXT_COVERAGE_THRESHOLD;
 }
 
+// These constants are used in the OCR redaction module
 const IMG_KIND_GRAYSCALE = 1;
 const IMG_KIND_RGB = 2;
 const IMG_KIND_RGBA = 3;
 
-function rawToRgba(src: Uint8ClampedArray | Uint8Array, width: number, height: number, kind: number): Uint8ClampedArray {
-  if (kind === IMG_KIND_RGBA) {
-    return src instanceof Uint8ClampedArray ? src : new Uint8ClampedArray(src);
-  }
-  const rgba = new Uint8ClampedArray(width * height * 4);
-  if (kind === IMG_KIND_RGB) {
-    for (let s = 0, d = 0; s < src.length; s += 3, d += 4) {
-      rgba[d] = src[s]; rgba[d + 1] = src[s + 1]; rgba[d + 2] = src[s + 2]; rgba[d + 3] = 255;
-    }
-  } else if (kind === IMG_KIND_GRAYSCALE) {
-    for (let s = 0, d = 0; s < src.length; s += 1, d += 4) {
-      rgba[d] = src[s]; rgba[d + 1] = src[s]; rgba[d + 2] = src[s]; rgba[d + 3] = 255;
-    }
-  }
-  return rgba;
-}
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
-async function extractPageImageToCanvas(
-  page: any,
-  canvas: HTMLCanvasElement,
-  ctx: CanvasRenderingContext2D,
-): Promise<boolean> {
-  try {
-    const ops = await page.getOperatorList();
-    const OPS_paintImageXObject = 85;
 
-    let imgName: string | null = null;
-    for (let i = 0; i < ops.fnArray.length; i++) {
-      if (ops.fnArray[i] === OPS_paintImageXObject) {
-        imgName = ops.argsArray[i]?.[0];
-        break;
-      }
-    }
-    if (!imgName) {
-      console.warn('[OCR] No paintImageXObject found in operator list');
-      return false;
-    }
-
-    console.log(`[OCR] Found image object: ${imgName}`);
-
-    const imgData: any = await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('image obj timeout after 15s')), 15000);
-      try {
-        page.objs.get(imgName, (obj: any) => {
-          clearTimeout(timeout);
-          resolve(obj);
-        });
-      } catch (e) {
-        clearTimeout(timeout);
-        reject(e);
-      }
-    });
-
-    if (!imgData) {
-      console.warn('[OCR] page.objs.get returned null');
-      return false;
-    }
-
-    console.log(`[OCR] Image data: width=${imgData.width}, height=${imgData.height}, kind=${imgData.kind}, hasBitmap=${!!imgData.bitmap}, hasData=${!!(imgData.data)}`);
-
-    if (imgData.bitmap) {
-      canvas.width = imgData.width || imgData.bitmap.width;
-      canvas.height = imgData.height || imgData.bitmap.height;
-      ctx.drawImage(imgData.bitmap, 0, 0);
-      console.log('[OCR] Drew ImageBitmap to canvas');
-      return true;
-    }
-
-    if (imgData.data && imgData.width && imgData.height) {
-      const w = imgData.width;
-      const h = imgData.height;
-      canvas.width = w;
-      canvas.height = h;
-
-      const kind = imgData.kind || (imgData.data.length === w * h * 4 ? IMG_KIND_RGBA : imgData.data.length === w * h * 3 ? IMG_KIND_RGB : IMG_KIND_GRAYSCALE);
-      const rgba = rawToRgba(imgData.data, w, h, kind);
-      const imgDataObj = new ImageData(rgba, w, h);
-      ctx.putImageData(imgDataObj, 0, 0);
-      console.log(`[OCR] Put raw image data to canvas (kind=${kind}, ${w}x${h})`);
-      return true;
-    }
-
-    console.warn('[OCR] Image object has neither bitmap nor data');
-    return false;
-  } catch (err) {
-    console.error('[OCR] extractPageImageToCanvas failed:', err);
-    return false;
-  }
-}
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export async function detectOcrDetections(
   pdf: ExtractedPdf,
@@ -416,10 +327,9 @@ export async function detectOcrDetections(
   const minLineConfidence = options.minLineConfidence ?? 55;
   const detections: Detection[] = [];
 
-  const doc = await getDocument({
-    data: Uint8Array.from(pdf.bytes),
-    disableWorker: true,
-  } as unknown as DocumentInitParameters).promise;
+   const doc = await getDocument({
+     data: Uint8Array.from(pdf.bytes),
+   }).promise;
 
   console.log(`[OCR] PDF loaded: ${doc.numPages} page(s)`);
 
