@@ -1,0 +1,52 @@
+src/ui/RedactionTool.tsx
+  bc173fe41afa100d 214,471,473
+  8e82a455d0138ec1 210-211,222-231,264,268,279,291,315,360,367,497,531-541
+src/index.css
+  8e82a455d0138ec1 548-549
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.10",
+  "base_commit_sha": "b29c2ce0a98fdb74d34ecd8bc5aac3baf3e81856",
+  "prompts": {
+    "0c1148d5556a3f30": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ce3ad-6e8a-7fc0-921b-2720cf7ab537",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Ketchalegend <kbepa02@gmail.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 15,
+      "overriden_lines": 0
+    },
+    "8e82a455d0138ec1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_31c414dbdffeygaXyG2qcqNB49",
+        "model": "opencode/nemotron-3-super-free"
+      },
+      "human_author": "Ketchalegend <kbepa02@gmail.com>",
+      "messages": [],
+      "total_additions": 306,
+      "total_deletions": 281,
+      "accepted_lines": 33,
+      "overriden_lines": 0
+    },
+    "bc173fe41afa100d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ce3c4-853f-7983-951f-7ba81bf439a3",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Ketchalegend <kbepa02@gmail.com>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 3,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    }
+  }
+}
