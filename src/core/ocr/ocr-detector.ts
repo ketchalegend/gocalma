@@ -39,9 +39,15 @@ interface OcrLineRule {
   confidence: number;
 }
 
+const OCR_LABEL_SEPARATOR = '(?:\\s*[:.\\-]\\s*|\\s+)';
+
 let detectionId = 0;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let ocrWorker: any = null;
+const OCR_LANG_PATH = new URL(
+  `${import.meta.env.BASE_URL}tessdata`,
+  window.location.origin,
+).toString();
 
 function nextId() {
   detectionId += 1;
@@ -62,7 +68,7 @@ function classifyWord(word: string): PiiType | null {
 }
 
 const PERSON_LABEL =
-  'full name|name|recipient|empf[a\u00e4]nger|kontoinhaber|account holder' +
+  'full name|name|nom|pr[eé]nom(?:\\(s\\))?|prenom(?:\\(s\\))?|recipient|empf[a\u00e4]nger|kontoinhaber|account holder' +
   '|patient(?: name)?|emergency contact|treating physician|arzt' +
   '|m[e\u00e9]decin|medico';
 
@@ -71,9 +77,9 @@ const PERSON_VALUE =
   "(?:\\s*,?\\s*[A-Z\u00c0-\u00d6\u00d8-\u00dd][\\p{L}''.\\x2d]{1,30}){0,4}";
 
 const DOB_LABEL =
-  'date of birth|dob|geburtsdatum|fecha de nacimiento|date de naissance|data di nascita';
+  'date of birth|dob|geburtsdatum(?:\\s+und\\s+-?ort)?|fecha de nacimiento|date de naissance|date/naissance|data di nascita';
 
-const PHONE_LABEL = 'phone|telefon|tel\\.?|telefono|t[e\u00e9]l[e\u00e9]phone';
+const PHONE_LABEL = 'phone|telefon|tel\\.?|telefono|t[e\u00e9]l[e\u00e9]phone|kontaktdaten';
 
 const EMAIL_LABEL =
   'e-?mail|correo(?: electr[o\u00f3]nico)?|courriel|posta elettronica';
@@ -82,14 +88,15 @@ const INSURANCE_LABEL =
   'insurance no\\.?|insurance number|policy no\\.?|versicherungsnummer|versicherungs-?nr\\.?';
 
 const PASSPORT_LABEL =
-  'passport(?: no\\.?)?|pass(?:port)?[-\\s]?nr\\.?|document id|ausweis[-\\s]?nr\\.?';
-/* eslint-enable no-useless-escape */
+  'passport(?: no\\.?)?|pass(?:port)?[-\\s]?nr\\.?|document id|ausweis[-\\s]?nr\\.?|matricule|student id|id etudiant';
 
+const ADDRESS_LABEL =
+  'address|adresse|direcci[o\u00f3]n|indirizzo|lieu de naissance|lieu/naissance|place of birth|anschrift';
 const OCR_LINE_RULES: OcrLineRule[] = [
   {
     type: 'PERSON',
     pattern: new RegExp(
-      `\\b(${PERSON_LABEL})\\s*[.:]?\\s*[:-]?\\s*(${PERSON_VALUE})`,
+      `\\b(${PERSON_LABEL})${OCR_LABEL_SEPARATOR}(${PERSON_VALUE})`,
       'giu',
     ),
     valueGroup: 2,
@@ -98,14 +105,17 @@ const OCR_LINE_RULES: OcrLineRule[] = [
   {
     type: 'ADDRESS',
     pattern:
-      /\b(address|adresse|direcci[o\u00f3]n|indirizzo)\s*[.:]?\s*[:-]?\s*([^\n]{6,120})/giu,
+      new RegExp(
+        `\\b(${ADDRESS_LABEL})${OCR_LABEL_SEPARATOR}([^\\n]{4,120})`,
+        'giu',
+      ),
     valueGroup: 2,
     confidence: 0.92,
   },
   {
     type: 'DATE_OF_BIRTH',
     pattern: new RegExp(
-      `\\b(${DOB_LABEL})\\s*[.:]?\\s*[:-]?\\s*((?:[0-3]?\\d[./-][01]?\\d[./-](?:19|20)?\\d{2})|(?:(?:19|20)\\d{2}-\\d{2}-\\d{2}))`,
+      `\\b(${DOB_LABEL})${OCR_LABEL_SEPARATOR}((?:[0-3]?\\d[./-][01]?\\d[./-](?:19|20)?\\d{2})|(?:(?:19|20)\\d{2}-\\d{2}-\\d{2}))`,
       'giu',
     ),
     valueGroup: 2,
@@ -114,7 +124,7 @@ const OCR_LINE_RULES: OcrLineRule[] = [
   {
     type: 'PHONE',
     pattern: new RegExp(
-      `\\b(${PHONE_LABEL})\\s*[.:]?\\s*[:-]?\\s*(\\+?\\d[\\d\\s()./-]{7,}\\d)`,
+      `\\b(${PHONE_LABEL})${OCR_LABEL_SEPARATOR}(\\+?\\d[\\d\\s()./-]{7,}\\d)`,
       'giu',
     ),
     valueGroup: 2,
@@ -123,7 +133,7 @@ const OCR_LINE_RULES: OcrLineRule[] = [
   {
     type: 'EMAIL',
     pattern: new RegExp(
-      `\\b(${EMAIL_LABEL})\\s*[.:]?\\s*[:-]?\\s*([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})`,
+      `\\b(${EMAIL_LABEL})${OCR_LABEL_SEPARATOR}([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})`,
       'giu',
     ),
     valueGroup: 2,
@@ -131,14 +141,14 @@ const OCR_LINE_RULES: OcrLineRule[] = [
   },
   {
     type: 'IBAN',
-    pattern: /\b(iban)\s*[.:]?\s*[:-]?\s*([A-Z]{2}\d{2}(?:\s?[A-Z0-9]){11,30})/giu,
+    pattern: new RegExp(`\\b(iban)${OCR_LABEL_SEPARATOR}([A-Z]{2}\\d{2}(?:\\s?[A-Z0-9]){11,30})`, 'giu'),
     valueGroup: 2,
     confidence: 0.98,
   },
   {
     type: 'INSURANCE_NUMBER',
     pattern: new RegExp(
-      `\\b(${INSURANCE_LABEL})\\s*[.:]?\\s*[:-]?\\s*([A-Z]{2,6}(?:-[A-Z]{2,6})?(?:-\\d{2,6}){1,4}|[A-Z]{2,6}\\d{6,})`,
+      `\\b(${INSURANCE_LABEL})${OCR_LABEL_SEPARATOR}([A-Z]{2,6}(?:-[A-Z]{2,6})?(?:-\\d{2,6}){1,4}|[A-Z]{2,6}\\d{6,})`,
       'giu',
     ),
     valueGroup: 2,
@@ -147,7 +157,7 @@ const OCR_LINE_RULES: OcrLineRule[] = [
   {
     type: 'ID_NUMBER',
     pattern: new RegExp(
-      `\\b(${PASSPORT_LABEL})\\s*[.:]?\\s*[:-]?\\s*([A-Z0-9]{2,40})`,
+      `\\b(${PASSPORT_LABEL})${OCR_LABEL_SEPARATOR}([A-Z0-9]{2,40})`,
       'giu',
     ),
     valueGroup: 2,
@@ -226,6 +236,94 @@ function findValueBBoxInLine(
   return null;
 }
 
+function createDetectionFromOcrLine(
+  input: OcrDetectionInput,
+  line: OcrLine,
+  type: PiiType,
+  value: string,
+  confidence: number,
+): Detection {
+  const bbox = findValueBBoxInLine(line, value) ?? line.bbox;
+  return {
+    id: nextId(),
+    type,
+    text: value,
+    page: input.pageNumber,
+    bbox: createBBoxFromOcrBbox(
+      bbox,
+      input.pageWidth,
+      input.pageHeight,
+      input.canvasWidth,
+      input.canvasHeight,
+    ),
+    confidence,
+    source: 'ocr',
+  };
+}
+
+function normalizeOcrAddressValue(value: string): string {
+  const cleaned = value.trim().replace(/\s+/g, ' ');
+  const streetWithNumber = /([A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?:\s+[A-ZÀ-ÖØ-Ýa-zÀ-ÖØ-öø-ÿ'’.-]+){0,4}\s+\d{1,4}[A-Za-z]?)/u.exec(cleaned);
+  if (streetWithNumber) return streetWithNumber[1].trim();
+
+  const cityLike = /([A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?:[-\s][A-ZÀ-ÖØ-Ýa-zÀ-ÖØ-öø-ÿ'’.-]+){0,3})/u.exec(cleaned);
+  return cityLike ? cityLike[1].trim() : cleaned;
+}
+
+function detectCvStyleOcrFields(
+  input: OcrDetectionInput,
+  minLineConfidence: number,
+): Detection[] {
+  const detections: Detection[] = [];
+  const lines = input.lines.filter((line) => (line.confidence ?? 100) >= minLineConfidence && line.text?.trim());
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const lineText = line.text.trim();
+
+    if (index < 3) {
+      const nameMatch = /^([A-ZÀ-ÖØ-Ý][\p{L}'’-]{1,30}(?:\s+[A-ZÀ-ÖØ-Ý][\p{L}'’-]{1,30}){1,3})\b/u.exec(lineText);
+      if (nameMatch) {
+        detections.push(createDetectionFromOcrLine(input, line, 'PERSON', nameMatch[1], 0.92));
+      }
+    }
+
+    const addressMatch = /\banschrift\b\s+([^\n]{4,80})/iu.exec(lineText);
+    if (addressMatch) {
+      detections.push(
+        createDetectionFromOcrLine(
+          input,
+          line,
+          'ADDRESS',
+          normalizeOcrAddressValue(addressMatch[1]),
+          0.9,
+        ),
+      );
+    }
+
+    const phoneMatch = /\bkontaktdaten\b\s+(\+?\d{8,15})\b/iu.exec(lineText);
+    if (phoneMatch) {
+      detections.push(createDetectionFromOcrLine(input, line, 'PHONE', phoneMatch[1], 0.92));
+    }
+
+    const emailMatch = /\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})\b/u.exec(lineText);
+    if (emailMatch) {
+      detections.push(createDetectionFromOcrLine(input, line, 'EMAIL', emailMatch[1], 0.95));
+    }
+
+    const birthLineMatch =
+      /\bgeburtsdatum(?:\s+und\s+-?ort)?\b\s+((?:[0-3]?\d[./-][01]?\d[./-](?:19|20)?\d{2}))(?:\s+in\s+([A-ZÀ-ÖØ-Ý][\p{L}'’-]+(?:[-\s][A-ZÀ-ÖØ-Ý][\p{L}'’-]+){0,3}))?/iu.exec(lineText);
+    if (birthLineMatch) {
+      detections.push(createDetectionFromOcrLine(input, line, 'DATE_OF_BIRTH', birthLineMatch[1], 0.95));
+      if (birthLineMatch[2]) {
+        detections.push(createDetectionFromOcrLine(input, line, 'ADDRESS', birthLineMatch[2], 0.9));
+      }
+    }
+  }
+
+  return detections;
+}
+
 export function detectPiiFromOcrLines(
   input: OcrDetectionInput,
   minLineConfidence = 55,
@@ -265,21 +363,69 @@ export function detectPiiFromOcrLines(
     }
   }
 
+  detections.push(...detectCvStyleOcrFields(input, minLineConfidence));
+
   return detections;
 }
 
 function dedupeOcrDetections(detections: Detection[]): Detection[] {
-  const seen = new Set<string>();
-  const unique: Detection[] = [];
+  const byKey = new Map<string, Detection>();
 
   for (const detection of detections) {
-    const key = `${detection.page}|${detection.type}|${detection.text.toLowerCase().trim()}|${Math.round(detection.bbox.x)}|${Math.round(detection.bbox.y)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    unique.push(detection);
+    const normalizedText = detection.text.toLowerCase().trim();
+    const coarsePosition =
+      detection.type === 'EMAIL' || detection.type === 'PHONE'
+        ? 'global'
+        : `${Math.round(detection.bbox.x / 24)}|${Math.round(detection.bbox.y / 24)}`;
+    const key =
+      detection.type === 'ADDRESS'
+        ? `${detection.page}|${detection.type}|${coarsePosition}`
+        : `${detection.page}|${detection.type}|${normalizedText}|${coarsePosition}`;
+    const existing = byKey.get(key);
+    if (!existing || isPreferredOcrDetection(detection, existing)) {
+      byKey.set(key, detection);
+    }
   }
 
-  return unique;
+  return Array.from(byKey.values());
+}
+
+function isPreferredOcrDetection(candidate: Detection, existing: Detection): boolean {
+  if (candidate.type === 'ADDRESS' && existing.type === 'ADDRESS') {
+    const candidateNoise = (candidate.text.match(/[^A-Za-zÀ-ÖØ-öø-ÿ0-9\s.-]/g) ?? []).length;
+    const existingNoise = (existing.text.match(/[^A-Za-zÀ-ÖØ-öø-ÿ0-9\s.-]/g) ?? []).length;
+    if (candidateNoise !== existingNoise) return candidateNoise < existingNoise;
+    if (candidate.text.length !== existing.text.length) return candidate.text.length < existing.text.length;
+  }
+  return candidate.confidence > existing.confidence;
+}
+
+function isLikelyOcrPhone(text: string): boolean {
+  const cleaned = text.trim();
+  const digits = cleaned.replace(/[^\d]/g, '');
+  if (digits.length < 8 || digits.length > 15) return false;
+  if (/^\d+$/.test(cleaned)) return cleaned.startsWith('00');
+  const separators = (cleaned.match(/[\s()./-]/g) ?? []).length;
+  return cleaned.startsWith('+') || separators >= 2;
+}
+
+function isLikelyOcrPerson(text: string): boolean {
+  const cleaned = text.trim().replace(/\s+/g, ' ');
+  if (!cleaned || /\d/.test(cleaned)) return false;
+  const lowered = cleaned.toLowerCase();
+  const blockedHints = ['uv', 'module', 'moyenne', 'valid', 'pourcentage', 'credit', 'annee', 'niveau', 'anschrift', 'kontaktdaten', 'geburtsdatum'];
+  if (blockedHints.some((hint) => lowered.includes(hint))) return false;
+  const parts = cleaned.split(' ');
+  if (parts.length < 1 || parts.length > 4) return false;
+  return parts.every((part) => /^[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’.()-]{1,30}$/u.test(part));
+}
+
+function filterOcrDetections(detections: Detection[]): Detection[] {
+  return detections.filter((detection) => {
+    if (detection.type === 'PHONE') return isLikelyOcrPhone(detection.text);
+    if (detection.type === 'PERSON') return isLikelyOcrPerson(detection.text);
+    return true;
+  });
 }
 
 const IMAGE_OPS = new Set([82, 85, 86]);
@@ -303,14 +449,6 @@ async function pageNeedsOcr(
   }
   return textArea / pageArea < TEXT_COVERAGE_THRESHOLD;
 }
-
-// These constants are used in the OCR redaction module
-const IMG_KIND_GRAYSCALE = 1;
-const IMG_KIND_RGB = 2;
-const IMG_KIND_RGBA = 3;
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 
 export async function detectOcrDetections(
   pdf: ExtractedPdf,
@@ -363,6 +501,8 @@ export async function detectOcrDetections(
 
       if (!ocrWorker) {
         ocrWorker = await createWorker(language, 1, {
+          langPath: OCR_LANG_PATH,
+          gzip: false,
           logger: (m: { status: string; progress: number }) => {
             console.log(`[OCR] Tesseract: ${m.status} ${Math.round((m.progress ?? 0) * 100)}%`);
           },
@@ -401,6 +541,10 @@ export async function detectOcrDetections(
       if (lines.length > 0) {
         console.log(`[OCR] First 3 lines:`, lines.slice(0, 3).map((l: OcrLine) => l.text));
       }
+      existing.ocrText = lines
+        .map((line) => line.text?.trim() ?? '')
+        .filter(Boolean)
+        .join('\n');
 
       for (const word of words) {
         if (!word.text?.trim()) continue;
@@ -451,6 +595,7 @@ export async function detectOcrDetections(
     ocrWorker = null;
   }
 
-  console.log(`[OCR] Pipeline complete: ${detections.length} raw detections`);
-  return dedupeOcrDetections(detections);
+  const filtered = filterOcrDetections(detections);
+  console.log(`[OCR] Pipeline complete: ${detections.length} raw detections, ${filtered.length} after OCR filters`);
+  return dedupeOcrDetections(filtered);
 }

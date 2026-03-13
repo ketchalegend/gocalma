@@ -377,8 +377,8 @@ export function RedactionTool() {
               <p className="eyebrow">Workflow</p>
               <h2>Redaction control room</h2>
               <p className="panel-intro">
-                Keep recall high, inspect every candidate, and export only after the review surface looks
-                right.
+                High-recall local detection for standard PDFs, scanned documents, and phone-captured inputs,
+                with review before export.
               </p>
 
               <ol className="stage-list">
@@ -395,7 +395,7 @@ export function RedactionTool() {
                         <strong>{formatStageLabel(item)}</strong>
                         <p>
                           {item === 'upload' && 'Bring in the source PDF and choose detection depth.'}
-                          {item === 'processing' && 'Text extraction, detection, and optional OCR run locally.'}
+                          {item === 'processing' && 'Text extraction, detection, and OCR for scanned files run locally.'}
                           {item === 'review' && 'Curate the final set of entities before redaction.'}
                           {item === 'download' && 'Export the redacted PDF and encrypted recovery key.'}
                         </p>
@@ -409,7 +409,7 @@ export function RedactionTool() {
             <div className="workflow-panel workflow-meta">
               <div className="meta-row">
                 <span>OCR</span>
-                <strong>{OCR_ENABLED ? 'Feature-flagged on' : 'Feature-flagged off'}</strong>
+                <strong>{OCR_ENABLED ? 'Local scanned-doc support on' : 'Forced off'}</strong>
               </div>
               <div className="meta-row">
                 <span>Selected entities</span>
@@ -428,8 +428,8 @@ export function RedactionTool() {
                 <p className="eyebrow">Redaction</p>
                 <h3>Build a reversible safe copy</h3>
                 <p className="panel-intro">
-                  Scope is core plus reversible export. OCR remains optional and must never block the main
-                  submission path.
+                  Keep the document on-device, review every candidate, and export a redacted PDF with its
+                  encrypted recovery key.
                 </p>
               </div>
 
@@ -439,7 +439,7 @@ export function RedactionTool() {
                     <span className="file-input-step">Start here</span>
                     <span className="file-input-title">Upload a source PDF</span>
                     <span className="file-input-hint">
-                      Extract text, detect PII, and prepare a reviewable set of redactions in-browser.
+                      Works with text PDFs and can also process scanned or phone-captured PDFs locally.
                     </span>
                     <input
                       type="file"
@@ -514,7 +514,7 @@ export function RedactionTool() {
                    <div className="review-header">
                      <div>
                        <h3>Review detections</h3>
-                       <p>{detections.length} candidates found. {selectedCount} currently selected for redaction.</p>
+                       <p>{detections.length} candidates found. {selectedCount} currently selected for redaction before export.</p>
                      </div>
                      <div className="actions">
                        <button
@@ -581,7 +581,7 @@ export function RedactionTool() {
                   <div className="review-header">
                     <div>
                       <h3>Download outputs</h3>
-                      <p>Ship the sanitized PDF and keep the encrypted key separate for controlled restoration.</p>
+                      <p>Download the sanitized PDF and keep the encrypted key so the original can be restored later.</p>
                     </div>
                   </div>
                   <div className="actions">

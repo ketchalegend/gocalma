@@ -18,20 +18,24 @@ export class TokenService {
   }
 
   tokenizePage(page: number, text: string, detections: Detection[]): TokenizedPage {
-    const sorted = [...detections]
+    const ranged = [...detections]
       .filter((d) => typeof d.start === 'number' && typeof d.end === 'number')
       .sort((a, b) => (b.start ?? 0) - (a.start ?? 0));
+    const textOnly = [...detections]
+      .filter((d) => typeof d.start !== 'number' || typeof d.end !== 'number')
+      .sort((a, b) => b.text.length - a.text.length);
 
-    const mappings: TokenMappingEntry[] = [];
+    const rangedMappings: TokenMappingEntry[] = [];
+    const textMappings: TokenMappingEntry[] = [];
     let redactedText = text;
 
-    for (const detection of sorted) {
+    for (const detection of ranged) {
       if (typeof detection.start !== 'number' || typeof detection.end !== 'number') continue;
 
       const token = this.createToken(detection.type);
       redactedText = `${redactedText.slice(0, detection.start)}${token}${redactedText.slice(detection.end)}`;
 
-      mappings.push({
+      rangedMappings.push({
         token,
         original: detection.text,
         type: detection.type,
@@ -41,12 +45,35 @@ export class TokenService {
       });
     }
 
+    for (const detection of textOnly) {
+      const matchIndex = this.findTextOccurrence(redactedText, detection.text);
+      if (matchIndex < 0) continue;
+
+      const token = this.createToken(detection.type);
+      redactedText = `${redactedText.slice(0, matchIndex)}${token}${redactedText.slice(matchIndex + detection.text.length)}`;
+      textMappings.push({
+        token,
+        original: detection.text,
+        type: detection.type,
+        page,
+      });
+    }
+
+    const mappings = [...rangedMappings.reverse(), ...textMappings];
+
     return {
       page,
       originalText: text,
       redactedText,
-      mappings: mappings.reverse(),
+      mappings,
     };
+  }
+
+  private findTextOccurrence(text: string, value: string): number {
+    if (!value) return -1;
+    const exact = text.indexOf(value);
+    if (exact >= 0) return exact;
+    return text.toLowerCase().indexOf(value.toLowerCase());
   }
 
   static restoreText(redactedText: string, mappings: TokenMappingEntry[]): string {

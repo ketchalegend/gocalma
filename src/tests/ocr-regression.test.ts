@@ -192,4 +192,90 @@ describe('OCR stretch regressions', () => {
       expect(d.bbox.height).toBeGreaterThan(0);
     }
   });
+
+  it('detects French education transcript identity fields from OCR lines', () => {
+    const detections = detectPiiFromOcrLines({
+      pageNumber: 1,
+      pageWidth: 595,
+      pageHeight: 842,
+      canvasWidth: 1190,
+      canvasHeight: 1684,
+      lines: [
+        {
+          text: 'Nom: BEPABEPA',
+          confidence: 93,
+          bbox: { x0: 120, y0: 250, x1: 420, y1: 290 },
+        },
+        {
+          text: 'Prénom(s) : Esther',
+          confidence: 93,
+          bbox: { x0: 430, y0: 250, x1: 760, y1: 290 },
+        },
+        {
+          text: 'Date/Naissance : 24/11/1996 Lieu/Naissance : Nkwen-Bamenda',
+          confidence: 91,
+          bbox: { x0: 120, y0: 300, x1: 980, y1: 340 },
+        },
+        {
+          text: 'Matricule : 77HB96',
+          confidence: 92,
+          bbox: { x0: 120, y0: 350, x1: 540, y1: 390 },
+        },
+      ],
+    });
+
+    expect(detections.some((d) => d.type === 'PERSON' && d.text.includes('BEPABEPA'))).toBe(true);
+    expect(detections.some((d) => d.type === 'PERSON' && d.text.includes('Esther'))).toBe(true);
+    expect(detections.some((d) => d.type === 'DATE_OF_BIRTH' && d.text === '24/11/1996')).toBe(true);
+    expect(detections.some((d) => d.type === 'ADDRESS' && d.text.includes('Nkwen-Bamenda'))).toBe(true);
+    expect(detections.some((d) => d.type === 'ID_NUMBER' && d.text === '77HB96')).toBe(true);
+    expect(detections.some((d) => d.type === 'PHONE' && d.text === '090200014388')).toBe(false);
+    expect(detections.some((d) => d.type === 'PERSON' && d.text.includes("bre d' UV"))).toBe(false);
+    expect(detections.some((d) => d.type === 'PERSON' && d.text.includes('bre de module'))).toBe(false);
+  });
+
+  it('detects scanned CV identity fields from OCR-only lines', () => {
+    const detections = detectPiiFromOcrLines({
+      pageNumber: 1,
+      pageWidth: 595,
+      pageHeight: 842,
+      canvasWidth: 1190,
+      canvasHeight: 1684,
+      lines: [
+        {
+          text: 'Esther Bepa Bepa anid | |',
+          confidence: 92,
+          bbox: { x0: 100, y0: 120, x1: 700, y1: 170 },
+        },
+        {
+          text: 'Anschrift Djeleng 4 TE ii ve',
+          confidence: 90,
+          bbox: { x0: 100, y0: 200, x1: 780, y1: 250 },
+        },
+        {
+          text: 'Kontaktdaten 00237677781158 N ANT',
+          confidence: 91,
+          bbox: { x0: 100, y0: 300, x1: 900, y1: 350 },
+        },
+        {
+          text: 'kbepa@yahoo.com | By ; we N',
+          confidence: 93,
+          bbox: { x0: 100, y0: 360, x1: 760, y1: 410 },
+        },
+        {
+          text: 'Geburtsdatum und -ort 24.11.1996 in Nkwen 7 i Eo FE ad',
+          confidence: 90,
+          bbox: { x0: 100, y0: 440, x1: 980, y1: 490 },
+        },
+      ],
+    });
+
+    expect(detections.some((d) => d.type === 'PERSON' && d.text === 'Esther Bepa Bepa')).toBe(true);
+    expect(detections.some((d) => d.type === 'ADDRESS' && d.text === 'Djeleng 4')).toBe(true);
+    expect(detections.some((d) => d.type === 'PHONE' && d.text === '00237677781158')).toBe(true);
+    expect(detections.some((d) => d.type === 'EMAIL' && d.text.includes('kbepa@yahoo.com'))).toBe(true);
+    expect(detections.some((d) => d.type === 'DATE_OF_BIRTH' && d.text === '24.11.1996')).toBe(true);
+    expect(detections.some((d) => d.type === 'ADDRESS' && d.text === 'Nkwen')).toBe(true);
+    expect(detections.filter((d) => d.type === 'EMAIL' && d.text === 'kbepa@yahoo.com')).toHaveLength(1);
+  });
 });

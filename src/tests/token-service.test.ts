@@ -40,4 +40,38 @@ describe('TokenService', () => {
     const restored = TokenService.restoreText(tokenized.redactedText, tokenized.mappings);
     expect(restored).toBe(text);
   });
+
+  it('tokenizes OCR-only preview text when detections have no text offsets', () => {
+    const service = new TokenService();
+    const text = 'Esther Bepa Bepa\nEmail: kbepa@yahoo.com';
+
+    const detections: Detection[] = [
+      {
+        id: '1',
+        type: 'PERSON',
+        text: 'Esther Bepa Bepa',
+        page: 1,
+        bbox: { x: 0, y: 0, width: 10, height: 10 },
+        confidence: 0.93,
+        source: 'ocr',
+      },
+      {
+        id: '2',
+        type: 'EMAIL',
+        text: 'kbepa@yahoo.com',
+        page: 1,
+        bbox: { x: 0, y: 0, width: 10, height: 10 },
+        confidence: 0.95,
+        source: 'ocr',
+      },
+    ];
+
+    const tokenized = service.tokenizePage(1, text, detections);
+
+    expect(tokenized.redactedText).toContain('[PERSON_001]');
+    expect(tokenized.redactedText).toContain('[EMAIL_001]');
+
+    const restored = TokenService.restoreText(tokenized.redactedText, tokenized.mappings);
+    expect(restored).toBe(text);
+  });
 });

@@ -109,6 +109,7 @@ export interface ExtractedPage {
   width: number;
   height: number;
   text: string;
+  ocrText?: string;
   items: PageTextItem[];
   spans: PageCharSpan[];
 }

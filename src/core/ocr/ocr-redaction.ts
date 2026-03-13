@@ -1,5 +1,5 @@
 import { PDFDocument, rgb } from 'pdf-lib';
-import { getDocument, type DocumentInitParameters } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { Detection, ExtractedPdf } from '../../types/domain';
 import { assertPdfHeader } from '../pdf/guards';
 
@@ -95,7 +95,10 @@ async function extractPageImageToCanvas(
       canvas.width = w;
       canvas.height = h;
       const kind = imgData.kind || (imgData.data.length === w * h * 4 ? IMG_KIND_RGBA : imgData.data.length === w * h * 3 ? IMG_KIND_RGB : IMG_KIND_GRAYSCALE);
-      ctx.putImageData(new ImageData(rawToRgba(imgData.data, w, h, kind), w, h), 0, 0);
+      const rgba = rawToRgba(imgData.data, w, h, kind);
+      const imageDataArray = new Uint8ClampedArray(rgba.length);
+      imageDataArray.set(rgba);
+      ctx.putImageData(new ImageData(imageDataArray, w, h), 0, 0);
       return true;
     }
     return false;
@@ -111,8 +114,7 @@ async function renderPageToCanvas(
 ): Promise<{ canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; pageWidth: number; pageHeight: number }> {
   const doc = await getDocument({
     data: Uint8Array.from(pdfBytes),
-    disableWorker: true,
-  } as unknown as DocumentInitParameters).promise;
+  }).promise;
   const page = await doc.getPage(pageNumber);
   const viewport = page.getViewport({ scale: RENDER_SCALE });
 

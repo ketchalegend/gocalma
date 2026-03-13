@@ -13,7 +13,8 @@ export async function createRedactionPackage(pdf: ExtractedPdf, approvedDetectio
 
   for (const page of pdf.pages) {
     const onPage = approvedDetections.filter((d) => d.page === page.page);
-    const tokenized = tokenService.tokenizePage(page.page, page.text, onPage);
+    const previewText = page.text.trim().length > 0 ? page.text : (page.ocrText ?? '');
+    const tokenized = tokenService.tokenizePage(page.page, previewText, onPage);
     mappingsByPage.set(page.page, tokenized.mappings);
     redactedTextByPage.push(tokenized.redactedText);
   }

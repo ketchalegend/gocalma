@@ -15,6 +15,10 @@ test-results
 dist-ssr
 *.local
 public/models/
+public/tessdata/
+docs/onepager.html
+docs/GoCalma-OnePager.pdf
+scripts/export-onepager-pdf.mjs
 
 # Editor directories and files
 .vscode/*

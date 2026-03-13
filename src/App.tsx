@@ -7,24 +7,24 @@ export default function App() {
       <section className="hero-panel">
         <div className="hero-copy">
           <p className="eyebrow">GoCalma challenge build</p>
-          <h1>Private PDF redaction, kept local.</h1>
+          <h1>Local-first PDF redaction for real documents.</h1>
           <p className="hero-summary">
-            Review detections, export a safe PDF, and keep the encrypted recovery key separate.
+            Runs in the browser, supports scanned and phone-captured PDFs, and keeps review plus reversible export in one flow.
           </p>
         </div>
 
         <aside className="hero-aside" aria-label="Product highlights">
           <div className="hero-stat">
-            <span>Flow</span>
-            <strong>Upload → review → export</strong>
+            <span>Benchmark</span>
+            <strong>97.50% core recall</strong>
           </div>
           <div className="hero-stat">
             <span>Privacy</span>
-            <strong>Zero document upload</strong>
+            <strong>Browser-only processing</strong>
           </div>
           <div className="hero-stat">
-            <span>Recovery</span>
-            <strong>Encrypted `.gocalma` key</strong>
+            <span>Coverage</span>
+            <strong>Text, scanned, phone-captured PDFs</strong>
           </div>
         </aside>
       </section>
