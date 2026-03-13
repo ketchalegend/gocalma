@@ -40,3 +40,4 @@ scripts/export-onepager-pdf.mjs
 .windsurf/
 skills/
 skills-lock.json
+.vercel
