@@ -2,6 +2,8 @@
 
 Local-first PDF PII redaction that runs in the browser.
 
+**🚀 Live Demo: https://gocalme.ketchalegend.me/**
+
 GoCalma is an open-source browser app for detecting and redacting sensitive information in PDFs without sending document contents to any server. Users upload a PDF locally, review detected entities, export a redacted PDF, and keep an encrypted `.gocalma` key file for reversible restoration.
 
 ## Submission Snapshot
@@ -127,6 +129,76 @@ npm run build
 - `npm run evaluate` currently reports `97.50%` core text-PDF macro recall
 - the repository also contains additional scanned and phone-captured style samples plus redacted outputs for inspection
 - `npm run build` produces a production-ready static bundle that can be hosted on any static host (for example Vercel) while preserving the local-first privacy model
+
+## Deployment Notes
+
+### Option 1: Own Node.js Server (Recommended for Full Control)
+
+Deploy on your own server (VPS, dedicated, or cloud VM):
+
+```bash
+npm install
+npm run setup      # Downloads ~5GB NER model + OCR data to server
+npm run build
+```
+
+**Serve with Node.js (port 3000):**
+
+```bash
+# Using serve package
+npx serve -s dist -l 3000
+
+# Or with a simple Express server (server.js):
+# const express = require('express');
+# const app = express();
+# app.use(express.static('dist'));
+# app.listen(3000, () => console.log('Server running on port 3000'));
+```
+
+**Pros:**
+- Full functionality immediately available
+- No external CDN dependencies
+- Complete control over the deployment
+- Port 3000 is fine and commonly used for Node.js apps
+
+### Option 2: Vercel + Cloudflare R2 (Easy Scaling)
+
+For easy scaling without managing servers:
+
+1. **Upload models to Cloudflare R2:**
+   ```bash
+   # Create R2 bucket and upload model files
+   aws s3 sync public/models/ s3://your-bucket/models/ --endpoint-url=https://<account>.r2.cloudflarestorage.com
+   ```
+
+2. **Deploy app to Vercel:**
+   ```bash
+   vercel --prod
+   ```
+
+3. **Configure CORS on R2** to allow your Vercel domain
+
+**Pros:**
+- Fast global CDN for models (no egress fees with R2)
+- Models download once, cache in browser
+- Easy auto-scaling
+- All PDF processing stays local in browser
+
+### Option 3: Vercel Deployment (Demo Mode - No NER)
+
+The NER model files (~5GB) are too large for Vercel's 250MB limit. The Vercel deployment:
+- Runs with regex-based detection only (no NER)
+- Still provides strong PII detection via contextual patterns and layout heuristics
+- Maintains the local-first privacy guarantee (no data leaves the browser)
+
+### Why Local Models Only
+
+Per the challenge requirements and privacy-first design:
+- **No remote models** - All AI processing happens locally in the browser
+- **No data transmission** - Document content never leaves the user's device
+- **User-controlled** - Models are downloaded once and cached locally
+
+This ensures compliance with the challenge's "Zero PII leakage outside local device" requirement.
 
 ## License
 

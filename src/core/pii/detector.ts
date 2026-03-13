@@ -1213,6 +1213,15 @@ export class PIIDetector {
   async initializeNER(preferred: 'multilingual-hrl' = 'multilingual-hrl') {
     if (this.model) return;
 
+    // Check if running in Vercel deployment (no models available)
+    const isVercelDeployment = typeof window !== 'undefined' && window.location?.hostname?.includes('vercel.app');
+    const enableNer = import.meta.env.VITE_ENABLE_NER !== 'false' && !isVercelDeployment;
+
+    if (!enableNer) {
+      this.lastNerError = 'NER disabled: Models not available in this deployment. Run locally with npm run ner:download for full NER support.';
+      throw new Error(this.lastNerError);
+    }
+
     // Enforce locally hosted Xenova model files under public/models.
     env.allowLocalModels = true;
     env.allowRemoteModels = false;
@@ -1228,7 +1237,7 @@ export class PIIDetector {
         const nerPipeline = await pipeline('token-classification', modelId);
         this.activeNerModelId = modelId;
         this.model = async (text: string) =>
-          ((nerPipeline as unknown as (input: string, options?: Record<string, unknown>) => Promise<NERToken[]>)(
+          ((nerPipeline as unknown as (input: string, options?: Record<string, unknown>) => Promise<NERToken[]>) (
             text,
             { aggregation_strategy: 'simple' },
           ) as Promise<NERToken[]>);
