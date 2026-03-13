@@ -1,0 +1,38 @@
+vercel.json
+  d7d888f04d8b5a34 1-17
+README.md
+  d7d888f04d8b5a34 129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.11",
+  "base_commit_sha": "f4f6bdc38984a04d83e87e83ee61663121a2cf60",
+  "prompts": {
+    "0c1148d5556a3f30": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ce3ad-6e8a-7fc0-921b-2720cf7ab537",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Ketchalegend <kbepa02@gmail.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 15,
+      "overriden_lines": 0
+    },
+    "d7d888f04d8b5a34": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "10ca65cc-e469-4997-bd6e-50402f8d61d6",
+        "model": "default"
+      },
+      "human_author": "Ketchalegend <kbepa02@gmail.com>",
+      "messages": [],
+      "total_additions": 18,
+      "total_deletions": 1,
+      "accepted_lines": 18,
+      "overriden_lines": 0
+    }
+  }
+}
