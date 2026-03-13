@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   preview: {
+    allowedHosts: ['gocalme.ketchalegend.me', 'localhost', '91.99.223.183'],
     proxy: {
       '/hf': {
         target: 'https://huggingface.co',
