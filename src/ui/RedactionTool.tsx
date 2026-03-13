@@ -545,9 +545,10 @@ export function RedactionTool() {
                            type="checkbox"
                            checked={selected.has(detection.id)}
                            onChange={(event) => {
+                             const isChecked = event.target.checked;
                              setSelected((current) => {
                                const next = new Set(current);
-                               if (event.currentTarget.checked) next.add(detection.id);
+                               if (isChecked) next.add(detection.id);
                                else next.delete(detection.id);
                                return next;
                              });
