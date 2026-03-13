@@ -126,7 +126,7 @@ npm run build
 
 - `npm run evaluate` currently reports `97.50%` core text-PDF macro recall
 - the repository also contains additional scanned and phone-captured style samples plus redacted outputs for inspection
-- `npm run build` currently fails due to pre-existing TypeScript issues in `src/core/ocr/ocr-redaction.ts`, unrelated to the submission-document updates
+- `npm run build` produces a production-ready static bundle that can be hosted on any static host (for example Vercel) while preserving the local-first privacy model
 
 ## License
 
