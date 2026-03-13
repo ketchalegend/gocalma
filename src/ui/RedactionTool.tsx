@@ -539,7 +539,7 @@ export function RedactionTool() {
                    </div>
                    <div className="detection-grid">
                      {filteredDetections.map((detection) => (
-                       <label key={detection.id} className="detection-card">
+                       <div key={detection.id} className="detection-card">
                          <input
                            id={`detection-${detection.id}`}
                            type="checkbox"
@@ -553,7 +553,7 @@ export function RedactionTool() {
                              });
                            }}
                          />
-                         <div className="detection-card-body">
+                         <label htmlFor={`detection-${detection.id}`} className="detection-card-body">
                            <div className="detection-topline">
                              <strong>{detection.type}</strong>
                              <span className={`confidence-pill confidence-${detection.confidence >= 0.9 ? 'high' : detection.confidence >= 0.75 ? 'mid' : 'low'}`}>
@@ -564,8 +564,8 @@ export function RedactionTool() {
                            <small>
                              page {detection.page} · {detection.source}
                            </small>
-                         </div>
-                       </label>
+                         </label>
+                       </div>
                      ))}
                    </div>
                    <div className="actions">

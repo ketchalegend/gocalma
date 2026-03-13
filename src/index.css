@@ -406,13 +406,13 @@ button:disabled {
   grid-template-columns: auto 1fr;
   gap: 0.8rem;
   align-items: start;
-  cursor: pointer;
 }
 
 .detection-card-body {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+  cursor: pointer;
 }
 
 .detection-topline {
