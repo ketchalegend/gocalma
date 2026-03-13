@@ -19,7 +19,7 @@ export async function createRedactionPackage(pdf: ExtractedPdf, approvedDetectio
     redactedTextByPage.push(tokenized.redactedText);
   }
 
-  const mappings = Array.from(mappingsByPage.values()).flat();
+  const mappings = Array.from(mappingsByPage.values()).reduce<TokenMappingEntry[]>((acc, curr) => acc.concat(curr), []);
   const visualRedactedBytes = await applyVisualRedactions(pdf.bytes, approvedDetections);
   const ocrDetections = OCR_ENABLED ? approvedDetections.filter((d) => d.source === 'ocr') : [];
   const redactedPdfBytes = await applyOcrOverlayRedactions(visualRedactedBytes, ocrDetections, pdf);
