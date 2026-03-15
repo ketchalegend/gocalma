@@ -1,0 +1,37 @@
+src/core/ocr/ocr-detector.ts
+  8a5b5c2704dbceb9 287-293,374,413-416,421-423,428
+src/ui/RedactionTool.tsx
+  8a5b5c2704dbceb9 4,11,200,306,308
+src/tests/ocr-regression.test.ts
+  8a5b5c2704dbceb9 237-258
+src/index.css
+  8a5b5c2704dbceb9 618-622
+src/App.tsx
+  8a5b5c2704dbceb9 3,5-6,8,20-24,37-38,40-47
+src/ui/FilesProcessedContext.tsx
+  8a5b5c2704dbceb9 1-28
+src/core/stats/files-processed.ts
+  8a5b5c2704dbceb9 1-23
+src/core/pii/detector.ts
+  8a5b5c2704dbceb9 461-495,508-526,529-530,762-763,936-939,964-971,1139-1142,1286,1376,1563-1564,1566,1571,1575
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.12",
+  "base_commit_sha": "bb39931cbc234dc6968b9fa372765b6578fd1896",
+  "prompts": {
+    "8a5b5c2704dbceb9": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "eefe311e-2556-47c1-89ca-44cf4e27ebf2",
+        "model": "composer-1.5"
+      },
+      "human_author": "Ketchalegend <kbepa02@gmail.com>",
+      "messages": [],
+      "total_additions": 414,
+      "total_deletions": 170,
+      "accepted_lines": 273,
+      "overriden_lines": 0
+    }
+  }
+}
