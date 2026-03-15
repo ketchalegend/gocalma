@@ -1,10 +1,34 @@
 import { describe, expect, it } from 'vitest';
 import { PIIDetector } from '../core/pii/detector';
-import type { ExtractedPdf } from '../types/domain';
+import type { ExtractedPdf, PageTextItem } from '../types/domain';
+
+function buildSpans(text: string, items: PageTextItem[]) {
+  const spans = [] as { start: number; end: number; item: PageTextItem }[];
+  let cursor = 0;
+  for (const item of items) {
+    const idx = text.indexOf(item.text, cursor);
+    if (idx >= 0) {
+      spans.push({ start: idx, end: idx + item.text.length, item });
+      cursor = idx + item.text.length;
+    }
+  }
+  return spans;
+}
 
 describe('context-aware local detection', () => {
   it('detects german field-labeled values like Geburtsdatum/Vorname/Familienname (synthetic)', async () => {
     const detector = new PIIDetector();
+
+    const pageItems = [
+      { text: 'Geburtsdatum', x: 10, y: 620, width: 90, height: 10 },
+      { text: '28.11.1994', x: 110, y: 620, width: 70, height: 10 },
+      { text: 'Vorname', x: 10, y: 600, width: 60, height: 10 },
+      { text: 'MAX', x: 80, y: 600, width: 75, height: 10 },
+      { text: 'Familienname', x: 10, y: 580, width: 90, height: 10 },
+      { text: 'MUSTERMANN', x: 110, y: 580, width: 90, height: 10 },
+      { text: 'Geburtsort', x: 10, y: 560, width: 80, height: 10 },
+      { text: 'BEISPIELSTADT', x: 100, y: 560, width: 70, height: 10 },
+    ];
 
     const fakePdf: ExtractedPdf = {
       fileName: 'local-form.pdf',
@@ -15,17 +39,11 @@ describe('context-aware local detection', () => {
           width: 500,
           height: 700,
           text: 'Geburtsdatum: 28.11.1994 Vorname: MAX Familienname: MUSTERMANN Geburtsort: BEISPIELSTADT',
-          items: [
-            { text: 'Geburtsdatum', x: 10, y: 620, width: 90, height: 10 },
-            { text: '28.11.1994', x: 110, y: 620, width: 70, height: 10 },
-            { text: 'Vorname', x: 10, y: 600, width: 60, height: 10 },
-            { text: 'MAX', x: 80, y: 600, width: 75, height: 10 },
-            { text: 'Familienname', x: 10, y: 580, width: 90, height: 10 },
-            { text: 'MUSTERMANN', x: 110, y: 580, width: 90, height: 10 },
-            { text: 'Geburtsort', x: 10, y: 560, width: 80, height: 10 },
-            { text: 'BEISPIELSTADT', x: 100, y: 560, width: 70, height: 10 },
-          ],
-          spans: [],
+          items: pageItems,
+          spans: buildSpans(
+            'Geburtsdatum: 28.11.1994 Vorname: MAX Familienname: MUSTERMANN Geburtsort: BEISPIELSTADT',
+            pageItems,
+          ),
         },
       ],
     };
@@ -87,10 +105,10 @@ describe('context-aware local detection', () => {
           page: 1,
           width: 600,
           height: 800,
-          text: 'Kraftfahrt-Bundesamt\nMax Mustermann\nMusterstr. 78\n51063 Beispielstadt',
+          text: 'Acme GmbH\nMarkus Mustermann\nMusterstr. 78\n51063 Beispielstadt',
           items: [
-            { text: 'Kraftfahrt-Bundesamt', x: 40, y: 760, width: 200, height: 12 },
-            { text: 'Max Mustermann', x: 40, y: 720, width: 210, height: 12 },
+            { text: 'Acme GmbH', x: 40, y: 745, width: 120, height: 12 },
+            { text: 'Markus Mustermann', x: 40, y: 720, width: 210, height: 12 },
             { text: 'Musterstr. 78', x: 40, y: 700, width: 150, height: 12 },
             { text: '51063 Beispielstadt', x: 40, y: 680, width: 170, height: 12 },
           ],
@@ -100,8 +118,9 @@ describe('context-aware local detection', () => {
     };
 
     const detections = await detector.detect(fakePdf, { useRegex: true, useNER: false });
+    console.log('DETECTIONS:', JSON.stringify(detections, null, 2));
 
-    expect(detections.some((detection) => detection.type === 'PERSON' && detection.text.includes('Max Mustermann'))).toBe(true);
+    expect(detections.some((detection) => detection.type === 'PERSON' && detection.text.includes('Markus Mustermann'))).toBe(true);
     expect(detections.some((detection) => detection.type === 'ADDRESS' && detection.text.includes('Musterstr. 78'))).toBe(true);
     expect(detections.some((detection) => detection.type === 'ADDRESS' && detection.text.includes('51063 Beispielstadt'))).toBe(true);
   });
@@ -117,9 +136,9 @@ describe('context-aware local detection', () => {
           page: 1,
           width: 600,
           height: 800,
-          text: 'Sehr geehrte(r) Frau/Herr Max Mustermann,',
+          text: 'Sehr geehrte(r) Frau/Herr Markus Mustermann,',
           items: [
-            { text: 'Sehr geehrte(r) Frau/Herr Max Mustermann,', x: 40, y: 700, width: 280, height: 12 },
+            { text: 'Sehr geehrte(r) Frau/Herr Markus Mustermann,', x: 40, y: 700, width: 280, height: 12 },
           ],
           spans: [],
         },
@@ -128,7 +147,7 @@ describe('context-aware local detection', () => {
 
     const detections = await detector.detect(fakePdf, { useRegex: true, useNER: false, aggressiveLineMode: true });
 
-    expect(detections.some((detection) => detection.type === 'PERSON' && detection.text.includes('Max Mustermann'))).toBe(true);
+    expect(detections.some((detection) => detection.type === 'PERSON' && detection.text.includes('Markus Mustermann'))).toBe(true);
     expect(detections.some((detection) => detection.type === 'PERSON' && detection.text.includes('Sehr geehrte'))).toBe(true);
   });
 
@@ -143,9 +162,9 @@ describe('context-aware local detection', () => {
           page: 1,
           width: 600,
           height: 800,
-          text: 'Max Mustermann Musterstr. 78 51063 Beispielstadt',
+          text: 'Markus Mustermann Musterstr. 78 51063 Beispielstadt',
           items: [
-            { text: 'Max Mustermann', x: 40, y: 720, width: 210, height: 12 },
+            { text: 'Markus Mustermann', x: 40, y: 720, width: 210, height: 12 },
             { text: 'Musterstr. 78', x: 40, y: 700, width: 150, height: 12 },
             { text: '51063 Beispielstadt', x: 40, y: 680, width: 170, height: 12 },
           ],
@@ -162,7 +181,7 @@ describe('context-aware local detection', () => {
 
   it('keeps repeated same-text PII occurrences on the same page', async () => {
     const detector = new PIIDetector();
-           const text = 'Sehr geehrte(r) Frau/Herr Max Mustermann, Geburtsname Max Mustermann Familienname Max Mustermann';
+           const text = 'Sehr geehrte(r) Frau/Herr Markus Mustermann, Geburtsname Markus Mustermann Familienname Markus Mustermann';
 
     const fakePdf: ExtractedPdf = {
       fileName: 'repeated-names.pdf',
@@ -174,11 +193,11 @@ describe('context-aware local detection', () => {
           height: 800,
           text,
           items: [
-            { text: 'Sehr geehrte(r) Frau/Herr Max Mustermann,', x: 40, y: 720, width: 280, height: 12 },
+            { text: 'Sehr geehrte(r) Frau/Herr Markus Mustermann,', x: 40, y: 720, width: 280, height: 12 },
             { text: 'Geburtsname', x: 40, y: 700, width: 90, height: 12 },
-            { text: 'Max Mustermann', x: 140, y: 700, width: 90, height: 12 },
+            { text: 'Markus Mustermann', x: 140, y: 700, width: 90, height: 12 },
             { text: 'Familienname', x: 250, y: 700, width: 90, height: 12 },
-            { text: 'Max Mustermann', x: 350, y: 700, width: 90, height: 12 },
+            { text: 'Markus Mustermann', x: 350, y: 700, width: 90, height: 12 },
           ],
           spans: [],
         },
@@ -187,13 +206,13 @@ describe('context-aware local detection', () => {
 
     const detections = await detector.detect(fakePdf, { useRegex: true, useNER: false });
     const repeated = detections.filter(
-      (detection) => detection.type === 'PERSON' && detection.text.toUpperCase().includes('MAX MUSTERMANN'),
+      (detection) => detection.type === 'PERSON' && detection.text.toUpperCase().includes('MARKUS MUSTERMANN'),
     );
 
     expect(repeated.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('detects inline label+value items (e.g. Familienname Max Mustermann)', async () => {
+  it('detects inline label+value items (e.g. Familienname Markus Mustermann)', async () => {
     const detector = new PIIDetector();
 
     const fakePdf: ExtractedPdf = {
@@ -204,8 +223,8 @@ describe('context-aware local detection', () => {
           page: 1,
           width: 600,
           height: 800,
-          text: 'Familienname Max Mustermann',
-          items: [{ text: 'Familienname Max Mustermann', x: 260, y: 520, width: 170, height: 12 }],
+          text: 'Familienname Markus Mustermann',
+          items: [{ text: 'Familienname Markus Mustermann', x: 260, y: 520, width: 170, height: 12 }],
           spans: [],
         },
       ],
@@ -216,7 +235,7 @@ describe('context-aware local detection', () => {
       detections.some(
         (detection) =>
           detection.type === 'PERSON' &&
-          detection.text.toUpperCase().includes('MAX MUSTERMANN'),
+          detection.text.toUpperCase().includes('MARKUS MUSTERMANN'),
       ),
     ).toBe(true);
   });
@@ -344,7 +363,7 @@ describe('context-aware local detection', () => {
           page: 1,
           width: 800,
           height: 1000,
-          text: 'Zahlungsdetails:\nKontoinhaber: Max Mustermann\nEmpfänger:\nDr. Beispiel, Erika Muster',
+          text: 'Zahlungsdetails:\nKontoinhaber: Markus Mustermann\nEmpfänger:\nDr. Beispiel, Erika Muster',
           items: [
             { text: 'Zahlungsdetails:', x: 500, y: 900, width: 120, height: 12 },
             { text: 'Kontoinhaber: Max Mustermann', x: 500, y: 880, width: 250, height: 12 },
@@ -361,7 +380,7 @@ describe('context-aware local detection', () => {
       .filter((detection) => detection.type === 'PERSON')
       .map((detection) => detection.text.toLowerCase());
 
-    expect(personTexts.some((text) => text.includes('max mustermann'))).toBe(true);
+    expect(personTexts.some((text) => text.includes('markus mustermann'))).toBe(true);
     expect(personTexts.some((text) => text.includes('beispiel'))).toBe(true);
     expect(personTexts.some((text) => text.includes('erika muster'))).toBe(true);
   });
@@ -436,7 +455,7 @@ describe('context-aware local detection', () => {
 
     const detections = await detector.detect(fakePdf, { useRegex: true, useNER: false, aggressiveLineMode: true });
 
-    expect(detections.some((detection) => detection.type === 'PERSON' && detection.text.includes('Max Mustermann'))).toBe(true);
+    expect(detections.some((detection) => detection.type === 'PERSON' && detection.text.includes('Markus Mustermann'))).toBe(true);
     expect(
       detections.some(
         (detection) =>
@@ -478,7 +497,7 @@ describe('context-aware local detection', () => {
             'TAGESPREIS: 47,94 €/ Tag\n' +
             'Halter: BEISPIEL AUTOVERMIETUNG GMBH & CO. KG',
           items: [
-            { text: 'Mieter: Max Mustermann', x: 40, y: 1500, width: 260, height: 12 },
+            { text: 'Mieter: Markus Mustermann', x: 40, y: 1500, width: 260, height: 12 },
             { text: 'Mietbeginn', x: 40, y: 1460, width: 120, height: 12 },
             { text: 'Donnerstag, 5. März 2026 16:54', x: 40, y: 1440, width: 260, height: 12 },
             { text: 'BEISPIELSTR. 1', x: 340, y: 1440, width: 180, height: 12 },
@@ -544,11 +563,11 @@ describe('context-aware local detection', () => {
             'Beispielweg 1',
           items: [
             { text: 'Rechnungsadresse', x: 80, y: 1200, width: 140, height: 12 },
-            { text: 'Max Mustermann', x: 80, y: 1180, width: 180, height: 12 },
+            { text: 'Markus Mustermann', x: 80, y: 1180, width: 180, height: 12 },
             { text: 'Beispielstr. 10', x: 80, y: 1160, width: 130, height: 12 },
             { text: '99999 Beispielstadt', x: 80, y: 1140, width: 140, height: 12 },
             { text: 'Lieferadresse', x: 360, y: 1200, width: 120, height: 12 },
-            { text: 'Max Mustermann', x: 360, y: 1180, width: 180, height: 12 },
+            { text: 'Markus Mustermann', x: 360, y: 1180, width: 180, height: 12 },
             { text: 'Beispielstr. 10', x: 360, y: 1160, width: 130, height: 12 },
             { text: '99999 Beispielstadt', x: 360, y: 1140, width: 140, height: 12 },
             { text: 'Verkauft durch', x: 720, y: 1200, width: 110, height: 12 },

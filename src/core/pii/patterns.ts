@@ -16,7 +16,7 @@ export const REGEX_PATTERNS: RegexPattern[] = [
   {
     type: 'ADDRESS',
     pattern:
-      /\b[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’.-]{2,}\s(?:str\.?|straße|strasse|weg|gasse|allee|platz|street|st\.|road|rd\.|avenue|ave\.)\s?\d{1,4}[a-zA-Z]?\b/giu,
+      /\b[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’.-]{2,}\s*(?:str\.?|straße|strasse|weg|gasse|allee|platz|street|st\.|road|rd\.|avenue|ave\.)\s?\d{1,4}[a-zA-Z]?\b/giu,
   },
   { type: 'PATIENT_ID', pattern: /\bPT-\d{6,10}\b/g },
   { type: 'INSURANCE_NUMBER', pattern: /\b(?:HC|KV)-[A-Z]{2}-\d{3}-\d{3}-\d{3}\b/g },

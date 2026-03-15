@@ -1,4 +1,6 @@
-import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs';
+GlobalWorkerOptions.workerSrc = '';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { ExtractedPage, ExtractedPdf, PageCharSpan, PageTextItem } from '../../types/domain';
 
 let workerConfigured = false;

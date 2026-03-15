@@ -666,13 +666,20 @@ function detectWithLayoutContext(page: ExtractedPage): Detection[] {
     const inlineValue = extractInlineValueFromLabelText(labelItem.text, rule.labels);
     if (inlineValue && isPlausibleContextValue(rule.type, inlineValue)) {
       const itemSpan = page.spans.find((span) => span.item === labelItem);
-      if (itemSpan) {
-        const baseText = labelItem.text;
-        const inlineStartInItem = baseText.toLowerCase().indexOf(inlineValue.toLowerCase());
-        if (inlineStartInItem >= 0) {
-          const start = itemSpan.start + inlineStartInItem;
-          const end = start + inlineValue.length;
+      const baseText = labelItem.text;
+      const inlineStartInItem = baseText.toLowerCase().indexOf(inlineValue.toLowerCase());
+
+      if (inlineStartInItem >= 0) {
+        const start = itemSpan ? itemSpan.start + inlineStartInItem : -1;
+        const end = start + inlineValue.length;
+        if (start >= 0) {
           detections.push(mapMatchToDetection(page, rule.type, inlineValue, start, end, 'context', 0.99));
+          continue;
+        }
+
+        const range = findTextRange(page.text, inlineValue);
+        if (range) {
+          detections.push(mapMatchToDetection(page, rule.type, inlineValue, range.start, range.end, 'context', 0.99));
           continue;
         }
       }
@@ -704,15 +711,16 @@ function detectWithLayoutContext(page: ExtractedPage): Detection[] {
     if (!isPlausibleContextValue(rule.type, valueText)) continue;
 
     const valueSpan = page.spans.find((span) => span.item === valueItem);
-    if (!valueSpan) continue;
+    const range = valueSpan ? { start: valueSpan.start, end: valueSpan.end } : findTextRange(page.text, valueText);
+    if (!range) continue;
 
     detections.push(
       mapMatchToDetection(
         page,
         rule.type,
         valueText,
-        valueSpan.start,
-        valueSpan.end,
+        range.start,
+        range.end,
         'context',
         0.99,
       ),
@@ -832,7 +840,7 @@ function isLikelyStandaloneNameLine(text: string): boolean {
     .replace(/[,:;]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  if (normalized.length < 5 || normalized.length > 70) return false;
+  if (normalized.length < 6 || normalized.length > 70) return false;
   if (/\d/.test(normalized)) return false;
 
   const stopTokens = new Set([
@@ -856,11 +864,14 @@ function isLikelyStandaloneNameLine(text: string): boolean {
   ]);
 
   const tokens = normalized.split(' ');
-  if (tokens.length < 2 || tokens.length > 4) return false;
+  if (tokens.length < 2 || tokens.length > 6) return false;
   if (tokens.some((token) => stopTokens.has(token.toLowerCase()))) return false;
   if (tokens.some((token) => NON_PII_PERSON_TOKENS.has(token.toLowerCase()))) return false;
   if (tokens.some((token) => token.length > 18)) return false;
-  if (tokens.filter((token) => token.length >= 4).length < 2) return false;
+
+  // Require at least one reasonably long word to avoid matching short initials or
+  // common non-person tokens (e.g., "Al Li").
+  if (tokens.filter((token) => token.length >= 4).length < 1) return false;
   if (NON_PII_FINANCIAL_LINE_HINTS.some((hint) => normalized.toLowerCase().includes(hint))) return false;
 
   return tokens.every((token) => /^[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’-]{1,30}$/u.test(token));
@@ -1010,8 +1021,9 @@ function detectHeaderRecipientBlocks(page: ExtractedPage): Detection[] {
     if (!streetItem || !cityItem) continue;
 
     const nameSpan = page.spans.find((span) => span.item === nameItem);
-    if (nameSpan) {
-      detections.push(mapMatchToDetection(page, 'PERSON', nameText, nameSpan.start, nameSpan.end, 'context', 0.95));
+    const nameRange = nameSpan ? { start: nameSpan.start, end: nameSpan.end } : findTextRange(page.text, nameText);
+    if (nameRange) {
+      detections.push(mapMatchToDetection(page, 'PERSON', nameText, nameRange.start, nameRange.end, 'context', 0.95));
     }
 
     const streetSpan = page.spans.find((span) => span.item === streetItem);
@@ -1135,10 +1147,14 @@ function isLikelyPersonContextValue(text: string): boolean {
   if (BUSINESS_ENTITY_HINTS.test(normalized)) return false;
 
   const parts = normalized.split(' ');
-  if (parts.length < 1 || parts.length > 4) return false;
+  if (parts.length < 1 || parts.length > 6) return false;
   if (parts.some((part) => NON_PII_PERSON_TOKENS.has(part.toLowerCase()))) return false;
   if (parts.some((part) => part.length > 18)) return false;
-  if (parts.length > 1 && parts.filter((part) => part.length >= 4).length < 2) return false;
+
+  // Require at least one reasonably long word to avoid matching short non-person tokens.
+  if (parts.filter((part) => part.length >= 4).length < 1) return false;
+  if (normalized.length < 6) return false;
+
   return parts.every((part) => /^[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ.'’-]{1,30}$/u.test(part));
 }
 
