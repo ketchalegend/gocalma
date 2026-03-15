@@ -1,0 +1,27 @@
+src/core/ocr/ocr-redaction.ts
+  daca557139d63df9 147,155,162-178,180,271-324
+README.md
+  daca557139d63df9 92-101
+src/core/redaction/service.ts
+  daca557139d63df9 5,23-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.12",
+  "base_commit_sha": "7898963c6ffdb01549e58845429ac58e6b9968b4",
+  "prompts": {
+    "daca557139d63df9": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "5d5aae3d-243a-41a8-b416-ea75bd5c8d0b",
+        "model": "composer-1.5"
+      },
+      "human_author": "Ketchalegend <kbepa02@gmail.com>",
+      "messages": [],
+      "total_additions": 93,
+      "total_deletions": 9,
+      "accepted_lines": 90,
+      "overriden_lines": 0
+    }
+  }
+}
