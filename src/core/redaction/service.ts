@@ -2,7 +2,7 @@ import type { Detection, ExtractedPdf, RedactionResult, TokenMappingEntry } from
 import { applyVisualRedactions } from './pdf-redactor';
 import { TokenService } from './token-service';
 import { createKeyFilePayload, keyPayloadToBlob } from '../security/key-manager';
-import { applyOcrOverlayRedactions } from '../ocr/ocr-redaction';
+import { applyOcrOverlayRedactions, applyPixelLevelRedactionsForText } from '../ocr/ocr-redaction';
 import { OCR_ENABLED } from '../ocr/feature-flag';
 
 export async function createRedactionPackage(pdf: ExtractedPdf, approvedDetections: Detection[]): Promise<RedactionResult> {
@@ -20,7 +20,11 @@ export async function createRedactionPackage(pdf: ExtractedPdf, approvedDetectio
   }
 
   const mappings = Array.from(mappingsByPage.values()).reduce<TokenMappingEntry[]>((acc, curr) => acc.concat(curr), []);
-  const visualRedactedBytes = await applyVisualRedactions(pdf.bytes, approvedDetections);
+  const textDetections = approvedDetections.filter((d) => d.source !== 'ocr');
+  const visualRedactedBytes =
+    typeof document !== 'undefined' && textDetections.length > 0
+      ? await applyPixelLevelRedactionsForText(pdf.bytes, textDetections, pdf)
+      : await applyVisualRedactions(pdf.bytes, textDetections);
   const ocrDetections = OCR_ENABLED ? approvedDetections.filter((d) => d.source === 'ocr') : [];
   const redactedPdfBytes = await applyOcrOverlayRedactions(visualRedactedBytes, ocrDetections, pdf);
   const redactedPdfBuffer = new Uint8Array(redactedPdfBytes);
