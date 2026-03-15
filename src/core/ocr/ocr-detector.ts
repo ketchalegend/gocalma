@@ -284,7 +284,13 @@ function detectCvStyleOcrFields(
     if (index < 3) {
       const nameMatch = /^([A-ZÀ-ÖØ-Ý][\p{L}'’-]{1,30}(?:\s+[A-ZÀ-ÖØ-Ý][\p{L}'’-]{1,30}){1,3})\b/u.exec(lineText);
       if (nameMatch) {
-        detections.push(createDetectionFromOcrLine(input, line, 'PERSON', nameMatch[1], 0.92));
+        const candidate = nameMatch[1];
+        const nextLine = lines[index + 1]?.text?.trim();
+        const hasFinancialContext = /(?:€|\$|£|CHF)|\d+[.,]\d{2}\s*(?:€|CHF)?/.test(lineText);
+        const nextLooksLikeAddress = nextLine && (/\d/.test(nextLine) && /\b(str|strasse|straße|street|weg|gasse|via|rue|anschrift)\b/i.test(nextLine));
+        if (!hasFinancialContext && nextLooksLikeAddress) {
+          detections.push(createDetectionFromOcrLine(input, line, 'PERSON', candidate, 0.92));
+        }
       }
     }
 
@@ -365,7 +371,7 @@ export function detectPiiFromOcrLines(
 
   detections.push(...detectCvStyleOcrFields(input, minLineConfidence));
 
-  return detections;
+  return filterOcrDetections(detections);
 }
 
 function dedupeOcrDetections(detections: Detection[]): Detection[] {
@@ -404,17 +410,22 @@ function isLikelyOcrPhone(text: string): boolean {
   const cleaned = text.trim();
   const digits = cleaned.replace(/[^\d]/g, '');
   if (digits.length < 8 || digits.length > 15) return false;
-  if (/^\d+$/.test(cleaned)) return cleaned.startsWith('00');
+  // Allow compact numbers: 00 (international) or 0 + 10–15 digits (German mobile/landline)
+  if (/^\d+$/.test(cleaned)) {
+    return cleaned.startsWith('00') || (cleaned.startsWith('0') && digits.length >= 10);
+  }
   const separators = (cleaned.match(/[\s()./-]/g) ?? []).length;
   return cleaned.startsWith('+') || separators >= 2;
 }
+
+/** Education transcripts / form headers – not document labels, small edge-case list. */
+const OCR_NON_NAME_HINTS = ['uv', 'module', 'moyenne', 'pourcentage', 'credit', 'annee', 'niveau', 'anschrift', 'kontaktdaten'] as const;
 
 function isLikelyOcrPerson(text: string): boolean {
   const cleaned = text.trim().replace(/\s+/g, ' ');
   if (!cleaned || /\d/.test(cleaned)) return false;
   const lowered = cleaned.toLowerCase();
-  const blockedHints = ['uv', 'module', 'moyenne', 'valid', 'pourcentage', 'credit', 'annee', 'niveau', 'anschrift', 'kontaktdaten', 'geburtsdatum'];
-  if (blockedHints.some((hint) => lowered.includes(hint))) return false;
+  if (OCR_NON_NAME_HINTS.some((hint) => lowered.includes(hint))) return false;
   const parts = cleaned.split(' ');
   if (parts.length < 1 || parts.length > 4) return false;
   return parts.every((part) => /^[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’.()-]{1,30}$/u.test(part));

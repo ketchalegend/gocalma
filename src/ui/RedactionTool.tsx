@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import type { Detection, ExtractedPdf, KeyFilePayload, RedactionResult } from '../types/domain';
 import { extractPdf } from '../core/pdf/extractor';
-import { PIIDetector } from '../core/pii/detector';
+import { deduplicateMergedDetections, PIIDetector } from '../core/pii/detector';
 import { createRedactionPackage } from '../core/redaction/service';
 import { downloadBlob } from './download';
 import { decryptOriginalPdfBytes, matchesRedactedPdf, parseKeyFile } from '../core/security/key-manager';
 import { restoreRedactedText } from '../core/redaction/unredact';
 import { OCR_ENABLED } from '../core/ocr/feature-flag';
 import { detectOcrDetections } from '../core/ocr/ocr-detector';
+import { useFilesProcessed } from './FilesProcessedContext';
 
 const detector = new PIIDetector();
 
@@ -196,6 +197,7 @@ function UnredactPanel() {
 }
 
 export function RedactionTool() {
+  const { increment: incrementFilesProcessed } = useFilesProcessed();
   const [activeTab, setActiveTab] = useState<Tab>('redact');
   const [stage, setStage] = useState<Stage>('upload');
   const [pdf, setPdf] = useState<ExtractedPdf | null>(null);
@@ -301,8 +303,9 @@ export function RedactionTool() {
            setWarning(`OCR detection failed: ${msg}. Text-based detections still applied.`);
          }
        }
-       const merged = [...found, ...ocrFound];
+       const merged = deduplicateMergedDetections([...found, ...ocrFound]);
 
+       incrementFilesProcessed();
        setPdf(extracted);
        setDetections(merged);
        setSelected(new Set(merged.map((entry) => entry.id)));

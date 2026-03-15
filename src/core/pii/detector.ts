@@ -458,6 +458,41 @@ function mapMatchToDetection(page: ExtractedPage, type: PiiType, matchText: stri
   };
 }
 
+function resolvePersonOverAddress(detections: Detection[]): Detection[] {
+  const personByText = new Map<string, Detection>();
+  const addressCandidates: Detection[] = [];
+
+  for (const d of detections) {
+    const norm = d.text.trim().toLowerCase().replace(/\s+/g, ' ');
+    const pageKey = `${d.page}|${norm}`;
+    if (d.type === 'PERSON') {
+      personByText.set(pageKey, d);
+    } else if (d.type === 'ADDRESS') {
+      addressCandidates.push(d);
+    }
+  }
+
+  const dropAddress = (d: Detection): boolean => {
+    const norm = d.text.trim().toLowerCase().replace(/\s+/g, ' ');
+    const pageKey = `${d.page}|${norm}`;
+    const hasPerson = personByText.has(pageKey);
+    const looksLikeName = isLikelyPersonContextValue(d.text) && !isLikelyStreetLine(d.text) && !isLikelyPostalCityLine(d.text);
+    return hasPerson && looksLikeName;
+  };
+
+  return detections.filter((d) => d.type !== 'ADDRESS' || !dropAddress(d));
+}
+
+function overlapsOrSameEntity(a: Detection, b: Detection): boolean {
+  if (a.page !== b.page) return false;
+  const aHasSpan = typeof a.start === 'number' && typeof a.end === 'number' && a.end > a.start;
+  const bHasSpan = typeof b.start === 'number' && typeof b.end === 'number' && b.end > b.start;
+  if (aHasSpan && bHasSpan) {
+    return a.start! < b.end! && a.end! > b.start!;
+  }
+  return true;
+}
+
 function deduplicateDetections(detections: Detection[]): Detection[] {
   const byKey = new Map<string, Detection>();
 
@@ -470,7 +505,29 @@ function deduplicateDetections(detections: Detection[]): Detection[] {
       byKey.set(key, detection);
     }
   });
-  return Array.from(byKey.values()).sort((a, b) => a.page - b.page || (a.start ?? 0) - (b.start ?? 0));
+
+  let result = Array.from(byKey.values());
+
+  // Collapse overlapping same page+type+normalizedText (applies to all entity types)
+  const kept: Detection[] = [];
+  const sorted = [...result].sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
+  for (const d of sorted) {
+    const norm = normalizeDetectionTextForType(d.type, d.text);
+    const isDuplicate = kept.some(
+      (k) =>
+        k.page === d.page &&
+        k.type === d.type &&
+        normalizeDetectionTextForType(k.type, k.text) === norm &&
+        overlapsOrSameEntity(k, d),
+    );
+    if (!isDuplicate) kept.push(d);
+  }
+
+  return kept.sort((a, b) => a.page - b.page || (a.start ?? 0) - (b.start ?? 0));
+}
+
+export function deduplicateMergedDetections(detections: Detection[]): Detection[] {
+  return deduplicateDetections(detections);
 }
 
 function normalizeDetectionTextForType(type: PiiType, text: string): string {
@@ -702,6 +759,8 @@ function detectWithLayoutContext(page: ExtractedPage): Detection[] {
     const valueText = valueItem.text.trim();
     if (!valueText || valueText.length < 2) continue;
     if (!isPlausibleContextValue(rule.type, valueText)) continue;
+    // Do not tag recipient names as ADDRESS — address-section labels often have the name on the first line
+    if (rule.type === 'ADDRESS' && isLikelyPersonContextValue(valueText)) continue;
 
     const valueSpan = page.spans.find((span) => span.item === valueItem);
     if (!valueSpan) continue;
@@ -874,6 +933,10 @@ function detectStandaloneBlocks(page: ExtractedPage): Detection[] {
     const line = lines[index];
     if (!isLikelyStandaloneNameLine(line.text)) continue;
 
+    const nextLine = lines[index + 1]?.text?.trim();
+    const hasAddressBelow = nextLine && (isLikelyStreetLine(nextLine) || isLikelyPostalCityLine(nextLine));
+    if (!hasAddressBelow) continue;
+
     detections.push(
       mapMatchToDetection(page, 'PERSON', line.text, line.start, line.end, 'context', 0.94),
     );
@@ -898,6 +961,14 @@ function detectStandaloneBlocks(page: ExtractedPage): Detection[] {
   for (const nameItem of textItems) {
     const nameText = nameItem.text.trim();
     if (!isLikelyStandaloneNameLine(nameText)) continue;
+    const belowAligned = textItems
+      .filter((item) => item !== nameItem)
+      .filter((item) => item.y < nameItem.y)
+      .filter((item) => nameItem.y - item.y <= 60)
+      .filter((item) => Math.abs(item.x - nameItem.x) <= 28)
+      .sort((a, b) => b.y - a.y);
+    const hasAddressBelow = belowAligned.some((i) => isLikelyStreetLine(i.text)) || belowAligned.some((i) => isLikelyPostalCityLine(i.text));
+    if (!hasAddressBelow) continue;
 
     const nameSpan = page.spans.find((span) => span.item === nameItem);
     const nameRange = nameSpan
@@ -908,13 +979,6 @@ function detectStandaloneBlocks(page: ExtractedPage): Detection[] {
     detections.push(
       mapMatchToDetection(page, 'PERSON', nameText, nameRange.start, nameRange.end, 'context', 0.94),
     );
-
-    const belowAligned = textItems
-      .filter((item) => item !== nameItem)
-      .filter((item) => item.y < nameItem.y)
-      .filter((item) => nameItem.y - item.y <= 60)
-      .filter((item) => Math.abs(item.x - nameItem.x) <= 28)
-      .sort((a, b) => b.y - a.y);
 
     const streetItem = belowAligned.find((item) => isLikelyStreetLine(item.text));
     if (streetItem) {
@@ -1072,7 +1136,10 @@ function isLikelyPhone(text: string): boolean {
   if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(text.trim())) return false;
   if (/^\d{1,2}[./-]\d{4}(?:[./-]\d{1,2}[./-]\d{4})+$/.test(text.trim())) return false;
   if (/\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/.test(text.trim())) return false;
-  if (/^\d+$/.test(text.trim())) return false;
+  // Allow compact numbers: 0-prefix with 10–15 digits (German mobile e.g. 015164624318)
+  if (/^\d+$/.test(text.trim())) {
+    return (normalized.startsWith('00') || normalized.startsWith('0')) && digitsOnly.length >= 10;
+  }
   const separators = (text.match(/[.\s()-]/g) ?? []).length;
   if (separators < 2) return false;
 
@@ -1213,12 +1280,10 @@ export class PIIDetector {
   async initializeNER(preferred: 'multilingual-hrl' = 'multilingual-hrl') {
     if (this.model) return;
 
-    // Check if running in Vercel deployment (no models available)
-    const isVercelDeployment = typeof window !== 'undefined' && window.location?.hostname?.includes('vercel.app');
-    const enableNer = import.meta.env.VITE_ENABLE_NER !== 'false' && !isVercelDeployment;
+    const enableNer = import.meta.env.VITE_ENABLE_NER !== 'false';
 
     if (!enableNer) {
-      this.lastNerError = 'NER disabled: Models not available in this deployment. Run locally with npm run ner:download for full NER support.';
+      this.lastNerError = 'NER disabled (VITE_ENABLE_NER=false). Run locally with npm run ner:download for NER support.';
       throw new Error(this.lastNerError);
     }
 
@@ -1308,7 +1373,7 @@ export class PIIDetector {
   async detect(pdf: ExtractedPdf, options: DetectionOptions = {}): Promise<Detection[]> {
   const minConfidence = options.minConfidence ?? 0.75;
   const useRegex = options.useRegex ?? true;
-  const useNER = options.useNER ?? false;
+  const useNER = options.useNER ?? true;
   const requireNER = options.requireNER ?? false;
   const aggressiveLineMode = options.aggressiveLineMode ?? false;
     const nerModel = options.nerModel ?? 'multilingual-hrl';
@@ -1495,16 +1560,18 @@ export class PIIDetector {
       return !overlapsNonPhone;
     });
 
+    const resolved = resolvePersonOverAddress(baseFiltered);
+
     if (!aggressiveLineMode) {
-      return baseFiltered;
+      return deduplicateDetections(resolved);
     }
 
     const expanded: Detection[] = [];
     for (const page of pdf.pages) {
-      const pageBase = baseFiltered.filter((entry) => entry.page === page.page);
+      const pageBase = resolved.filter((entry) => entry.page === page.page);
       expanded.push(...expandToLineDetections(page, pageBase));
     }
 
-    return deduplicateDetections([...baseFiltered, ...expanded]);
+    return deduplicateDetections([...resolved, ...expanded]);
   }
 }
