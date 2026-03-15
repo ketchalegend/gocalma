@@ -146,6 +146,7 @@ async function renderPageToCanvas(
   return { canvas, ctx, pageWidth: unscaledViewport.width, pageHeight: unscaledViewport.height };
 }
 
+/** Canvas coords: y=0 at top. OCR bbox uses this. */
 function paintBlackRects(
   ctx: CanvasRenderingContext2D,
   detections: Detection[],
@@ -153,17 +154,32 @@ function paintBlackRects(
   pageHeight: number,
   canvasWidth: number,
   canvasHeight: number,
+  coordsFromBottom = false,
 ) {
   const xScale = canvasWidth / pageWidth;
   const yScale = canvasHeight / pageHeight;
 
   ctx.fillStyle = '#000000';
   for (const d of detections) {
-    const x = d.bbox.x * xScale - BBOX_PADDING;
-    const y = d.bbox.y * yScale - BBOX_PADDING;
-    const w = d.bbox.width * xScale + BBOX_PADDING * 2;
-    const h = d.bbox.height * yScale + BBOX_PADDING * 2;
-    ctx.fillRect(Math.max(0, x), Math.max(0, y), w, h);
+    const rects = (d.segments && d.segments.length > 0 ? d.segments : [d.bbox]).map((r) => {
+      if (coordsFromBottom) {
+        return {
+          x: r.x * xScale - BBOX_PADDING,
+          y: (pageHeight - r.y - r.height) * yScale - BBOX_PADDING,
+          w: r.width * xScale + BBOX_PADDING * 2,
+          h: r.height * yScale + BBOX_PADDING * 2,
+        };
+      }
+      return {
+        x: r.x * xScale - BBOX_PADDING,
+        y: r.y * yScale - BBOX_PADDING,
+        w: r.width * xScale + BBOX_PADDING * 2,
+        h: r.height * yScale + BBOX_PADDING * 2,
+      };
+    });
+    for (const { x, y, w, h } of rects) {
+      ctx.fillRect(Math.max(0, x), Math.max(0, y), w, h);
+    }
   }
 }
 
@@ -250,6 +266,60 @@ export async function applyOcrOverlayRedactions(
         });
       }
     }
+  }
+
+  return pdfDoc.save();
+}
+
+/**
+ * Applies permanent pixel-level redaction for text-based detections.
+ *
+ * Renders each affected page to canvas, paints black rectangles at detection
+ * coordinates (destroying the underlying text pixels), then replaces the page
+ * with the redacted image. This removes the text layer entirely so macOS data
+ * detectors and similar features cannot access the redacted content.
+ *
+ * Only runs in browser (requires document.createElement). Falls back to
+ * drawRectangle overlay when not available (e.g. tests).
+ */
+export async function applyPixelLevelRedactionsForText(
+  pdfBytes: Uint8Array,
+  textDetections: Detection[],
+  pdf: ExtractedPdf,
+): Promise<Uint8Array> {
+  if (textDetections.length === 0) return pdfBytes;
+  if (typeof document === 'undefined') return pdfBytes;
+
+  const stableBytes = Uint8Array.from(pdfBytes);
+  assertPdfHeader(stableBytes, 'Pixel-level text redaction');
+  const pdfDoc = await PDFDocument.load(stableBytes);
+  const pages = pdfDoc.getPages();
+  const groups = groupByPage(textDetections);
+
+  for (const group of groups) {
+    const page = pages[group.pageNumber - 1];
+    if (!page) continue;
+
+    const pageInfo = pdf.pages[group.pageNumber - 1];
+    if (!pageInfo) continue;
+
+    const { canvas, ctx, pageWidth, pageHeight } = await renderPageToCanvas(
+      pdf.bytes,
+      group.pageNumber,
+    );
+
+    paintBlackRects(
+      ctx,
+      group.detections,
+      pageWidth,
+      pageHeight,
+      canvas.width,
+      canvas.height,
+      true, // PDF coords: y from bottom
+    );
+
+    const jpgBytes = await canvasToJpegBytes(canvas);
+    await replacePageWithImage(pdfDoc, group.pageNumber - 1, jpgBytes);
   }
 
   return pdfDoc.save();

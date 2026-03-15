@@ -615,6 +615,11 @@ input[type="checkbox"] {
     grid-template-columns: 1fr;
   }
 
+  /* Put main action area ("Build a reversible safe copy") above sidebar on mobile */
+  .workflow-main {
+    order: -1;
+  }
+
   .option-grid {
     grid-template-columns: 1fr;
   }

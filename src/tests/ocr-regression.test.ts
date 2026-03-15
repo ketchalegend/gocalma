@@ -234,6 +234,28 @@ describe('OCR stretch regressions', () => {
     expect(detections.some((d) => d.type === 'PERSON' && d.text.includes('bre de module'))).toBe(false);
   });
 
+  it('does not detect document section labels as PERSON (DE, EN, FR, IT, ES)', () => {
+    const detections = detectPiiFromOcrLines({
+      pageNumber: 1,
+      pageWidth: 595,
+      pageHeight: 842,
+      canvasWidth: 1190,
+      canvasHeight: 1684,
+      lines: [
+        { text: 'Lieferadresse Rechnungsadresse', confidence: 92, bbox: { x0: 100, y0: 150, x1: 600, y1: 190 } },
+        { text: 'Versandkosten Versandkoste', confidence: 90, bbox: { x0: 100, y0: 200, x1: 550, y1: 240 } },
+        { text: 'Gesamt MwSt. 42,56 €', confidence: 91, bbox: { x0: 100, y0: 250, x1: 400, y1: 290 } },
+        { text: 'Zahlungsart e-Transactions 266,56 €', confidence: 93, bbox: { x0: 100, y0: 300, x1: 600, y1: 340 } },
+      ],
+    });
+
+    const personDetections = detections.filter((d) => d.type === 'PERSON');
+    expect(personDetections.some((d) => d.text.includes('Lieferadresse') || d.text.includes('Rechnungsadresse'))).toBe(false);
+    expect(personDetections.some((d) => d.text.includes('Versandkosten') || d.text.includes('Versandkoste'))).toBe(false);
+    expect(personDetections.some((d) => d.text.includes('Gesamt') || d.text.includes('MwSt'))).toBe(false);
+    expect(personDetections.some((d) => d.text.includes('Zahlungsart') || d.text.includes('e-Transactions'))).toBe(false);
+  });
+
   it('detects scanned CV identity fields from OCR-only lines', () => {
     const detections = detectPiiFromOcrLines({
       pageNumber: 1,

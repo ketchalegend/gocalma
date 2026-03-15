@@ -89,6 +89,16 @@ GoCalma combines several local strategies instead of relying on a single detecto
 
 This layered approach is what made the project more accurate across structured forms, letters, notices, invoices, and low-quality scanned inputs.
 
+### Secure Redaction: Why Pixel-Level Redaction Matters
+
+Simply drawing black rectangles over text in a PDF does **not** remove the underlying content. The text layer remains in the file, so it stays:
+
+- Selectable and copyable
+- Searchable
+- Detectable by OS features (e.g. macOS data detectors showing phone numbers when you click a "redacted" area)
+
+**GoCalma’s solution:** For text-based pages, the app uses **pixel-level redaction**. Each affected page is rendered to an image, black rectangles are painted at the detection coordinates (removing the underlying pixels), and the page is replaced with the redacted image. The original text layer is removed, so OS data detectors and similar tools cannot access the redacted content. Un-redaction still works as before, since the original document is stored encrypted in the `.gocalma` key file.
+
 ## Getting Started
 
 ### Prerequisites
