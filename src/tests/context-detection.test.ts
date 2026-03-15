@@ -23,7 +23,7 @@ describe('context-aware local detection', () => {
       { text: 'Geburtsdatum', x: 10, y: 620, width: 90, height: 10 },
       { text: '28.11.1994', x: 110, y: 620, width: 70, height: 10 },
       { text: 'Vorname', x: 10, y: 600, width: 60, height: 10 },
-      { text: 'MAX', x: 80, y: 600, width: 75, height: 10 },
+      { text: 'Markus', x: 80, y: 600, width: 80, height: 10 },
       { text: 'Familienname', x: 10, y: 580, width: 90, height: 10 },
       { text: 'MUSTERMANN', x: 110, y: 580, width: 90, height: 10 },
       { text: 'Geburtsort', x: 10, y: 560, width: 80, height: 10 },
@@ -38,10 +38,10 @@ describe('context-aware local detection', () => {
           page: 1,
           width: 500,
           height: 700,
-          text: 'Geburtsdatum: 28.11.1994 Vorname: MAX Familienname: MUSTERMANN Geburtsort: BEISPIELSTADT',
+          text: 'Geburtsdatum: 28.11.1994 Vorname: Markus Familienname: MUSTERMANN Geburtsort: BEISPIELSTADT',
           items: pageItems,
           spans: buildSpans(
-            'Geburtsdatum: 28.11.1994 Vorname: MAX Familienname: MUSTERMANN Geburtsort: BEISPIELSTADT',
+            'Geburtsdatum: 28.11.1994 Vorname: Markus Familienname: MUSTERMANN Geburtsort: BEISPIELSTADT',
             pageItems,
           ),
         },
@@ -51,7 +51,7 @@ describe('context-aware local detection', () => {
     const detections = await detector.detect(fakePdf, { useRegex: true, useNER: false });
 
     expect(detections.some((detection) => detection.type === 'DATE_OF_BIRTH' && detection.text.includes('28.11.1994'))).toBe(true);
-    expect(detections.some((detection) => detection.type === 'PERSON' && detection.text.toLowerCase().includes('max'))).toBe(true);
+    expect(detections.some((detection) => detection.type === 'PERSON' && detection.text.toLowerCase().includes('markus'))).toBe(true);
     expect(detections.some((detection) => detection.type === 'PERSON' && detection.text.toLowerCase().includes('mustermann'))).toBe(true);
     expect(detections.some((detection) => detection.type === 'ADDRESS' && detection.text.toLowerCase().includes('beispielstadt'))).toBe(true);
   });
@@ -112,13 +112,17 @@ describe('context-aware local detection', () => {
             { text: 'Musterstr. 78', x: 40, y: 700, width: 150, height: 12 },
             { text: '51063 Beispielstadt', x: 40, y: 680, width: 170, height: 12 },
           ],
-          spans: [],
+          spans: buildSpans('Acme GmbH\nMarkus Mustermann\nMusterstr. 78\n51063 Beispielstadt', [
+            { text: 'Acme GmbH', x: 40, y: 745, width: 120, height: 12 },
+            { text: 'Markus Mustermann', x: 40, y: 720, width: 210, height: 12 },
+            { text: 'Musterstr. 78', x: 40, y: 700, width: 150, height: 12 },
+            { text: '51063 Beispielstadt', x: 40, y: 680, width: 170, height: 12 },
+          ]),
         },
       ],
     };
 
     const detections = await detector.detect(fakePdf, { useRegex: true, useNER: false });
-    console.log('DETECTIONS:', JSON.stringify(detections, null, 2));
 
     expect(detections.some((detection) => detection.type === 'PERSON' && detection.text.includes('Markus Mustermann'))).toBe(true);
     expect(detections.some((detection) => detection.type === 'ADDRESS' && detection.text.includes('Musterstr. 78'))).toBe(true);
@@ -168,7 +172,11 @@ describe('context-aware local detection', () => {
             { text: 'Musterstr. 78', x: 40, y: 700, width: 150, height: 12 },
             { text: '51063 Beispielstadt', x: 40, y: 680, width: 170, height: 12 },
           ],
-          spans: [],
+          spans: buildSpans('Markus Mustermann Musterstr. 78 51063 Beispielstadt', [
+            { text: 'Markus Mustermann', x: 40, y: 720, width: 210, height: 12 },
+            { text: 'Musterstr. 78', x: 40, y: 700, width: 150, height: 12 },
+            { text: '51063 Beispielstadt', x: 40, y: 680, width: 170, height: 12 },
+          ]),
         },
       ],
     };
@@ -199,7 +207,13 @@ describe('context-aware local detection', () => {
             { text: 'Familienname', x: 250, y: 700, width: 90, height: 12 },
             { text: 'Markus Mustermann', x: 350, y: 700, width: 90, height: 12 },
           ],
-          spans: [],
+          spans: buildSpans(text, [
+            { text: 'Sehr geehrte(r) Frau/Herr Markus Mustermann,', x: 40, y: 720, width: 280, height: 12 },
+            { text: 'Geburtsname', x: 40, y: 700, width: 90, height: 12 },
+            { text: 'Markus Mustermann', x: 140, y: 700, width: 90, height: 12 },
+            { text: 'Familienname', x: 250, y: 700, width: 90, height: 12 },
+            { text: 'Markus Mustermann', x: 350, y: 700, width: 90, height: 12 },
+          ]),
         },
       ],
     };
@@ -225,7 +239,9 @@ describe('context-aware local detection', () => {
           height: 800,
           text: 'Familienname Markus Mustermann',
           items: [{ text: 'Familienname Markus Mustermann', x: 260, y: 520, width: 170, height: 12 }],
-          spans: [],
+          spans: buildSpans('Familienname Markus Mustermann', [
+            { text: 'Familienname Markus Mustermann', x: 260, y: 520, width: 170, height: 12 },
+          ]),
         },
       ],
     };
@@ -366,11 +382,19 @@ describe('context-aware local detection', () => {
           text: 'Zahlungsdetails:\nKontoinhaber: Markus Mustermann\nEmpfänger:\nDr. Beispiel, Erika Muster',
           items: [
             { text: 'Zahlungsdetails:', x: 500, y: 900, width: 120, height: 12 },
-            { text: 'Kontoinhaber: Max Mustermann', x: 500, y: 880, width: 250, height: 12 },
+            { text: 'Kontoinhaber: Markus Mustermann', x: 500, y: 880, width: 250, height: 12 },
             { text: 'Empfänger:', x: 100, y: 700, width: 90, height: 12 },
             { text: 'Dr. Beispiel, Erika Muster', x: 100, y: 680, width: 250, height: 12 },
           ],
-          spans: [],
+          spans: buildSpans(
+            'Zahlungsdetails:\nKontoinhaber: Markus Mustermann\nEmpfänger:\nDr. Beispiel, Erika Muster',
+            [
+              { text: 'Zahlungsdetails:', x: 500, y: 900, width: 120, height: 12 },
+              { text: 'Kontoinhaber: Markus Mustermann', x: 500, y: 880, width: 250, height: 12 },
+              { text: 'Empfänger:', x: 100, y: 700, width: 90, height: 12 },
+              { text: 'Dr. Beispiel, Erika Muster', x: 100, y: 680, width: 250, height: 12 },
+            ],
+          ),
         },
       ],
     };
@@ -438,6 +462,13 @@ describe('context-aware local detection', () => {
   it('keeps personal recipient fields while avoiding full-line expansion of mixed invoice metadata', async () => {
     const detector = new PIIDetector();
 
+    const items = [
+      { text: 'Mieter:', x: 40, y: 900, width: 50, height: 12 },
+      { text: 'Markus Mustermann', x: 95, y: 900, width: 150, height: 12 },
+      { text: 'Rechnungsdatum 11.03.2026 Rechnungsnr. DEM060143754', x: 255, y: 900, width: 485, height: 12 },
+    ];
+    const text = 'Mieter: Markus Mustermann Rechnungsdatum 11.03.2026 Rechnungsnr. DEM060143754';
+
     const fakePdf: ExtractedPdf = {
       fileName: 'mixed-invoice-line.pdf',
       bytes: new Uint8Array([1, 2, 3]),
@@ -446,9 +477,9 @@ describe('context-aware local detection', () => {
           page: 1,
           width: 900,
           height: 1200,
-          text: 'Mieter: Max Mustermann Rechnungsdatum 11.03.2026 Rechnungsnr. DEM060143754',
-          items: [{ text: 'Mieter: Max Mustermann Rechnungsdatum 11.03.2026 Rechnungsnr. DEM060143754', x: 40, y: 900, width: 700, height: 12 }],
-          spans: [],
+          text,
+          items,
+          spans: buildSpans(text, items),
         },
       ],
     };
@@ -477,7 +508,7 @@ describe('context-aware local detection', () => {
           width: 1100,
           height: 1600,
           text:
-            'Mieter: Max Mustermann\n' +
+            'Mieter: Markus Mustermann\n' +
             'Mietbeginn\n' +
             'Donnerstag, 5. März 2026 16:54\n' +
             'BEISPIELSTR. 1\n' +
@@ -525,7 +556,7 @@ describe('context-aware local detection', () => {
     const detections = await detector.detect(fakePdf, { useRegex: true, useNER: false, aggressiveLineMode: true });
     const texts = detections.map((detection) => detection.text);
 
-    expect(texts.some((text) => text.includes('Max Mustermann'))).toBe(true);
+    expect(texts.some((text) => text.includes('Markus Mustermann'))).toBe(true);
     expect(texts.some((text) => text.includes('BEISPIELSTR. 1'))).toBe(false);
     expect(texts.some((text) => text.includes('0000 000000'))).toBe(false);
     expect(texts.some((text) => text.includes('ADAC MITGLIEDERVORTEILSPREIS'))).toBe(false);
@@ -551,11 +582,11 @@ describe('context-aware local detection', () => {
           height: 1600,
           text:
             'Rechnungsadresse\n' +
-            'Max Mustermann\n' +
+            'Markus Mustermann\n' +
             'Beispielstr. 10\n' +
             '99999 Beispielstadt\n' +
             'Lieferadresse\n' +
-            'Max Mustermann\n' +
+            'Markus Mustermann\n' +
             'Beispielstr. 10\n' +
             '99999 Beispielstadt\n' +
             'Verkauft durch\n' +
@@ -582,7 +613,7 @@ describe('context-aware local detection', () => {
     const detections = await detector.detect(fakePdf, { useRegex: true, useNER: false });
     const texts = detections.map((detection) => detection.text);
 
-    expect(texts.some((text) => text.includes('Max Mustermann'))).toBe(true);
+    expect(texts.some((text) => text.includes('Markus Mustermann'))).toBe(true);
     expect(texts.some((text) => text.includes('Beispielstr. 10'))).toBe(true);
     expect(texts.some((text) => text.includes('99999 Beispielstadt'))).toBe(true);
     expect(texts.some((text) => text.includes('Beispiel Apotheke Stadt'))).toBe(false);
@@ -602,12 +633,12 @@ describe('context-aware local detection', () => {
           height: 1600,
           text:
             'Beispiel Apotheke Stadt · Beispielweg 1 · 99999 Beispielstadt\n' +
-            'Max Mustermann\n' +
+            'Markus Mustermann\n' +
             'Beispielstr. 10\n' +
             '99999 Beispielstadt',
           items: [
             { text: 'Beispiel Apotheke Stadt · Beispielweg 1 · 99999 Beispielstadt', x: 80, y: 1260, width: 360, height: 12 },
-            { text: 'Max Mustermann', x: 80, y: 1220, width: 180, height: 12 },
+            { text: 'Markus Mustermann', x: 80, y: 1220, width: 180, height: 12 },
             { text: 'Beispielstr. 10', x: 80, y: 1200, width: 130, height: 12 },
             { text: '99999 Beispielstadt', x: 80, y: 1180, width: 140, height: 12 },
           ],
@@ -619,7 +650,7 @@ describe('context-aware local detection', () => {
     const detections = await detector.detect(fakePdf, { useRegex: true, useNER: false });
     const texts = detections.map((detection) => detection.text);
 
-    expect(texts.some((text) => text.includes('Max Mustermann'))).toBe(true);
+    expect(texts.some((text) => text.includes('Markus Mustermann'))).toBe(true);
     expect(texts.some((text) => text.includes('Beispielstr. 10'))).toBe(true);
     expect(texts.some((text) => text.includes('99999 Beispielstadt'))).toBe(true);
   });
@@ -637,12 +668,12 @@ describe('context-aware local detection', () => {
           height: 1600,
           text:
             'Beispiel Apotheke Stadt · Beispielweg 1 · 99999 Beispielstadt\n' +
-            'Max Mustermann\n' +
+            'Markus Mustermann\n' +
             'Beispielstr. 10\n' +
             '99999 Beispielstadt',
           items: [
             { text: 'Beispiel Apotheke Stadt · Beispielweg 1 · 99999 Beispielstadt', x: 58.5, y: 674.952, width: 200, height: 6.8 },
-            { text: 'Max Mustermann', x: 58.5, y: 652.974, width: 97.04, height: 9 },
+            { text: 'Markus Mustermann', x: 58.5, y: 652.974, width: 97.04, height: 9 },
             { text: 'Beispielstr. 10', x: 58.5, y: 641.985, width: 64.03, height: 9 },
             { text: '99999 Beispielstadt', x: 58.5, y: 630.996, width: 80, height: 9 },
           ],
@@ -654,7 +685,7 @@ describe('context-aware local detection', () => {
     const detections = await detector.detect(fakePdf, { useRegex: true, useNER: false });
     const texts = detections.map((detection) => detection.text);
 
-    expect(texts.some((text) => text.includes('Max Mustermann'))).toBe(true);
+    expect(texts.some((text) => text.includes('Markus Mustermann'))).toBe(true);
     expect(texts.some((text) => text.includes('Beispielstr. 10'))).toBe(true);
     expect(texts.some((text) => text.includes('99999 Beispielstadt'))).toBe(true);
   });

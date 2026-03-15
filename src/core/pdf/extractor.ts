@@ -1,6 +1,4 @@
-import { GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs';
-GlobalWorkerOptions.workerSrc = '';
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { ExtractedPage, ExtractedPdf, PageCharSpan, PageTextItem } from '../../types/domain';
 
 let workerConfigured = false;
@@ -10,7 +8,11 @@ async function ensureWorkerConfigured() {
 
   try {
     const workerModule = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url');
-    GlobalWorkerOptions.workerSrc = workerModule.default;
+    const url = workerModule.default;
+    // Avoid overwriting test setup: Vite's ?url can produce paths that fail at runtime (e.g. /node_modules/...)
+    if (typeof url === 'string' && (url.startsWith('file://') || url.startsWith('blob:'))) {
+      GlobalWorkerOptions.workerSrc = url;
+    }
   } catch {
     // Node/test runtime may not support worker URL imports. pdfjs can still run for tests.
   }

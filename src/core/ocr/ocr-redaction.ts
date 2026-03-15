@@ -1,6 +1,4 @@
 import { PDFDocument, rgb } from 'pdf-lib';
-import { GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs';
-GlobalWorkerOptions.workerSrc = '';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { Detection, ExtractedPdf } from '../../types/domain';
 import { assertPdfHeader } from '../pdf/guards';

@@ -9,6 +9,7 @@ vi.mock('../core/redaction/pdf-redactor', () => ({
 
 vi.mock('../core/ocr/ocr-redaction', () => ({
   applyOcrOverlayRedactions: vi.fn().mockResolvedValue(new Uint8Array([4, 5, 6])),
+  applyPixelLevelRedactionsForText: vi.fn().mockResolvedValue(new Uint8Array([4, 5, 6])),
 }));
 
 vi.mock('../core/security/key-manager', () => ({
