@@ -129,10 +129,27 @@ Open the local Vite URL in your browser and upload a PDF.
 ```bash
 npm run dev
 npm run test
+npm run test:all
 npm run test:e2e
 npm run evaluate
 npm run build
 ```
+
+## Test Coverage Snapshot
+
+- Unit tests: `15` test files, `75` tests (`npm run test`)
+- End-to-end tests: `2` Playwright tests (`npm run test:e2e`)
+- Total automated tests currently passing: `77`
+- Single command for both suites: `npm run test:all`
+
+Current e2e coverage validates full-app integration flows in a real browser:
+
+- integration run across all canonical sample PDFs (hospital invoice, social security notice, scanned admission form)
+- select/deselect behavior in the review stage
+- upload PDF -> detect -> review -> generate -> download for each integration sample
+
+The e2e suite also verifies generated outputs are saved under `test-results/`, including redacted PDFs and matching `.gocalma` key files.
+It additionally validates artifact integrity by asserting non-trivial output sizes and checking the redacted PDF header (`%PDF`).
 
 ## Notes On Verification
 
