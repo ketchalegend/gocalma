@@ -7,14 +7,19 @@ async function ensureWorkerConfigured() {
   if (workerConfigured) return;
 
   try {
-    const workerModule = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url');
-    const url = workerModule.default;
-    // Avoid overwriting test setup: Vite's ?url can produce paths that fail at runtime (e.g. /node_modules/...)
-    if (typeof url === 'string' && (url.startsWith('file://') || url.startsWith('blob:'))) {
-      GlobalWorkerOptions.workerSrc = url;
+    // Only set worker in browser environments (not in Node.js test environments)
+    // Check if we're in a browser by looking for window and document globals
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const workerModule = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url');
+      const url = workerModule.default;
+      
+      // Set the worker src if we have a valid URL string
+      if (typeof url === 'string' && url.trim().length > 0) {
+        GlobalWorkerOptions.workerSrc = url;
+      }
     }
-  } catch {
-    // Node/test runtime may not support worker URL imports. pdfjs can still run for tests.
+  } catch (err) {
+    // Silently ignore errors - PDF.js can work without workers
   }
 
   workerConfigured = true;

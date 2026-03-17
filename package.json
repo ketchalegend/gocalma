@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:all": "npm run test && npm run test:e2e",
     "test:fast": "vitest run --exclude '**/integration-redaction.test.ts' --exclude '**/ocr-redaction.test.ts'",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

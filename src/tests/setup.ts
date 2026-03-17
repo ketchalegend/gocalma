@@ -5,7 +5,9 @@ import { createCanvas } from 'canvas';
 import { GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 const workerPath = path.join(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs');
-GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
+const workerUrl = pathToFileURL(workerPath).href;
+console.log('[Setup] Setting PDF worker to:', workerUrl);
+GlobalWorkerOptions.workerSrc = workerUrl;
 
 // Provide real canvas 2d context for jsdom (needed by pdf.js and OCR redaction)
 const OriginalCanvas = globalThis.HTMLCanvasElement;
